@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "Urun Bulucu",
+  "version": "1.0",
+  "description": "Ürün listesini Python'a aktaran yardımcı eklenti",
+
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "cookies",
+    "http://127.0.0.1/*",
+    "https://karanfil.satis.web.tr/*",
+    "https://resim.satis.web.tr/*"
+  ],
+
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Ürün Tara"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "*://karanfil.satis.web.tr/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+uploads/
+__pycache__/
+*.pyc
+
+urun_bulucu/cache/
+*.pt
+
+.env

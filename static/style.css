@@ -1,0 +1,310 @@
+*{
+    box-sizing:border-box;
+}
+
+
+body{
+
+    margin:0;
+
+    min-height:100vh;
+
+    background:
+    linear-gradient(
+        135deg,
+        #fff7fa,
+        #f8e8ed
+    );
+
+    font-family:
+    Arial,
+    sans-serif;
+
+}
+
+
+.container{
+
+
+    width:420px;
+
+    max-width:92%;
+
+    margin:30px auto;
+
+    background:white;
+
+    padding:30px;
+
+    border-radius:35px;
+
+    box-shadow:
+    0 20px 50px rgba(180,120,130,.15);
+
+
+}
+
+
+
+.logo{
+
+    width:220px;
+
+    display:block;
+
+    margin:auto;
+
+}
+
+
+
+h1{
+
+    text-align:center;
+
+    color:#5d454b;
+
+    font-size:32px;
+
+}
+
+
+
+.slogan{
+
+    text-align:center;
+
+    color:#c98c9b;
+
+    font-size:16px;
+
+    margin-bottom:25px;
+
+}
+
+
+
+.secimler{
+
+
+    display:flex;
+
+    gap:15px;
+
+
+}
+
+
+
+.buton{
+
+
+    flex:1;
+
+    background:#f4d1da;
+
+    padding:18px 10px;
+
+    border-radius:20px;
+
+    text-align:center;
+
+    font-weight:bold;
+
+    color:#5d454b;
+
+    cursor:pointer;
+
+
+}
+
+
+
+.buton input{
+
+    display:none;
+
+}
+
+
+
+button{
+
+
+    width:100%;
+
+    margin-top:25px;
+
+    padding:18px;
+
+    border:none;
+
+    border-radius:22px;
+
+    background:#c99752;
+
+    color:white;
+
+    font-size:20px;
+
+    font-weight:bold;
+
+    cursor:pointer;
+
+
+}
+
+
+
+button:hover{
+
+    opacity:.9;
+
+}
+
+
+
+#preview{
+
+
+    margin-top:20px;
+
+    text-align:center;
+
+}
+
+
+
+.onizleme{
+
+
+    width:150px;
+
+    height:150px;
+
+    object-fit:cover;
+
+    border-radius:25px;
+
+}
+
+
+
+h2{
+
+    text-align:center;
+
+    color:#c98c9b;
+
+    margin-top:35px;
+
+}
+
+
+
+
+.urun{
+
+
+    background:#fff8fa;
+
+    border-radius:30px;
+
+    padding:25px;
+
+    margin-top:25px;
+
+    text-align:center;
+
+
+}
+
+
+
+.urun img{
+
+
+    width:100%;
+
+    border-radius:25px;
+
+    margin-top:15px;
+
+
+}
+
+
+
+.benzer-bar{
+
+
+    height:12px;
+
+    background:#efd9df;
+
+    border-radius:20px;
+
+    overflow:hidden;
+
+    margin-top:10px;
+
+
+}
+
+
+
+.benzer-dolum{
+
+
+    height:100%;
+
+    background:#c99752;
+
+}
+
+
+
+.kopyala{
+
+
+    margin-top:15px;
+
+    background:#f4d1da;
+
+    color:#5d454b;
+
+    padding:12px;
+
+    border-radius:15px;
+
+    cursor:pointer;
+
+
+}
+
+#bilgi{
+    text-align:center;
+    word-break:break-word;
+    overflow-wrap:break-word;
+}
+
+#preview {
+    width: 100%;
+    text-align: center;
+    margin-top: 20px;
+}
+
+
+#onizleme {
+    display: block;
+    margin: 0 auto;
+    width: 160px;
+    max-width: 80%;
+    border-radius: 20px;
+}
+
+
+#bilgi {
+    text-align: center;
+    margin-top: 10px;
+}

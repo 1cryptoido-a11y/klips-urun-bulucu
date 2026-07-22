@@ -1,0 +1,7 @@
+flask
+flask-cors
+requests
+pillow
+torch
+torchvision
+open_clip_torch

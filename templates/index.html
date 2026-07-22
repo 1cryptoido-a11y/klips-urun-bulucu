@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>
+KLİPS Ürün Arama
+</title>
+
+
+<link rel="stylesheet" href="/static/style.css">
+
+
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+
+</head>
+
+
+
+<body>
+
+
+<div class="container">
+
+
+
+<img
+src="/static/klips_logo.png"
+class="logo"
+>
+
+
+
+
+<p class="slogan">
+Seninle Başlayan Tasarım
+</p>
+
+
+
+
+
+<form
+action="/ara"
+method="POST"
+enctype="multipart/form-data"
+id="form"
+>
+
+
+
+<div class="secimler">
+
+
+
+<<label class="buton" for="kamera">
+
+📷 Kamera ile Çek
+
+</label>
+
+
+<input
+type="file"
+id="kamera"
+name="foto"
+accept="image/*"
+capture="environment"
+hidden
+>
+
+
+
+
+<label class="buton" for="galeri">
+
+🖼️ Galeriden Seç
+
+</label>
+
+
+<input
+type="file"
+id="galeri"
+accept="image/*"
+hidden
+>
+
+
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="preview">
+
+
+<img
+id="onizleme"
+class="onizleme"
+style="display:none;"
+>
+
+
+<p id="bilgi"></p>
+
+
+</div>
+
+
+
+
+
+
+<button type="submit">
+
+🔍 Ürünü Bul
+
+</button>
+
+
+
+</form>
+
+
+
+
+
+
+
+{% if sonuc %}
+
+
+
+<h2>
+✨ Benzer Ürünler
+</h2>
+
+
+
+
+{% for u in sonuc %}
+
+
+
+
+<div class="urun">
+
+
+
+{% if loop.first %}
+
+<div>
+🏆 En iyi eşleşme
+</div>
+
+{% endif %}
+
+
+
+
+
+<h3>
+
+Ürün Kodu:
+{{u["kod"]}}
+
+</h3>
+
+
+
+
+
+<p>
+
+AI Benzerlik:
+
+%{{ (u["puan"]*100)|round(2) }}
+
+</p>
+
+
+
+
+
+
+<div class="benzer-bar">
+
+
+<div
+class="benzer-dolum"
+style="
+width:{{u["puan"]*100}}%
+">
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+<img
+src="/resim/{{u['kod']}}"
+>
+
+
+
+</div>
+
+
+
+
+{% endfor %}
+
+
+
+{% endif %}
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+<script>
+
+
+const kamera =
+document.getElementById("kamera");
+
+
+const galeri =
+document.getElementById("galeri");
+
+
+const preview =
+document.getElementById("onizleme");
+
+
+const bilgi =
+document.getElementById("bilgi");
+
+
+
+
+
+
+
+async function onizle(dosya){
+
+
+
+if(!dosya){
+
+return;
+
+}
+
+
+
+
+let gosterilecek = dosya;
+
+
+
+
+console.log(
+"SEÇİLEN:",
+dosya.name
+);
+
+
+console.log(
+"FORMAT:",
+dosya.type
+);
+
+
+
+
+
+
+if(
+
+dosya.name.toLowerCase().endsWith(".heic")
+
+||
+
+dosya.type === "image/heic"
+
+){
+
+
+
+try{
+
+
+bilgi.innerHTML =
+"📱 HEIC hazırlanıyor...";
+
+
+
+
+
+let sonuc = await heic2any({
+
+
+blob: dosya,
+
+
+toType:"image/jpeg",
+
+
+quality:0.9
+
+
+});
+
+
+
+
+
+if(Array.isArray(sonuc)){
+
+
+gosterilecek = sonuc[0];
+
+
+}
+
+else{
+
+
+gosterilecek = sonuc;
+
+
+}
+
+
+
+
+
+}
+
+catch(e){
+
+
+console.log(
+"HEIC HATA:",
+e
+);
+
+
+bilgi.innerHTML =
+"❌ HEIC önizleme açılamadı";
+
+
+return;
+
+
+}
+
+
+
+}
+
+
+
+
+
+
+
+const url =
+URL.createObjectURL(
+gosterilecek
+);
+
+
+
+preview.src = url;
+
+
+preview.style.display="block";
+
+
+
+
+
+bilgi.innerHTML =
+`
+${dosya.name}<br>
+${(dosya.size/1024/1024).toFixed(2)} MB
+`;
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+kamera.addEventListener(
+"change",
+function(){
+
+onizle(
+this.files[0]
+);
+
+}
+);
+
+
+
+
+
+
+
+
+galeri.addEventListener(
+"change",
+function(){
+
+    if(this.files[0]){
+
+        kamera.files = this.files;
+
+        onizle(
+            this.files[0]
+        );
+
+    }
+
+}
+);
+
+
+
+
+
+
+
+
+
+document
+.getElementById("form")
+.addEventListener(
+"submit",
+function(e){
+
+
+
+const secilen =
+kamera.files[0] ||
+galeri.files[0];
+
+
+
+
+if(!secilen){
+
+
+alert(
+"Lütfen önce fotoğraf seç"
+);
+
+
+e.preventDefault();
+
+
+}
+
+
+
+
+}
+
+);
+
+
+
+
+
+</script>
+
+
+
+
+
+
+</body>
+
+</html>
