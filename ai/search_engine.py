@@ -37,6 +37,22 @@ STOP_WORDS = {
 }
 
 
+def select_necklace_dino_queries(
+    queries: np.ndarray,
+    *,
+    macro_necklace: bool,
+    layered_necklace: bool,
+) -> np.ndarray | None:
+    """Route DINO evidence without letting a tight pendant crop hide the model."""
+    if macro_necklace:
+        return queries
+    if not layered_necklace:
+        return None
+    if len(queries) >= 6:
+        return queries[4:6]
+    return queries[:1]
+
+
 def search_terms(value: str) -> set[str]:
     normalized = unicodedata.normalize("NFKC", value).casefold()
     return {
@@ -74,6 +90,20 @@ class ProductSearchEngine:
         )
         self.tokenizer = open_clip.get_tokenizer(MODEL_NAME)
         self.model = self.model.to(self.device).eval()
+        necklace_prompts = self.tokenizer(
+            [
+                "a layered multi strand necklace with several chains and pendants",
+                "a single pendant necklace on a display card",
+            ]
+        ).to(self.device)
+        with torch.inference_mode():
+            necklace_text_vectors = self.model.encode_text(necklace_prompts)
+        necklace_text_vectors = necklace_text_vectors / necklace_text_vectors.norm(
+            dim=-1, keepdim=True
+        )
+        self.necklace_type_vectors = (
+            necklace_text_vectors.float().cpu().numpy().astype("float32")
+        )
         self.index = faiss.read_index(str(INDEX_FILE))
         self.grayscale_index = (
             faiss.read_index(str(GRAYSCALE_INDEX_FILE))
@@ -188,6 +218,7 @@ class ProductSearchEngine:
     ) -> list[dict[str, Any]]:
         queries = self._query_vectors(image_path, description.strip(), category)
         macro_necklace = False
+        layered_necklace = False
         if image_path and category.upper() == "KOLYE":
             with Image.open(image_path) as opened:
                 width, height = ImageOps.exif_transpose(opened).size
@@ -197,6 +228,11 @@ class ProductSearchEngine:
             color_view_count = len(queries) // 2
             grayscale_queries = queries[color_view_count:]
             queries = queries[:color_view_count]
+            if category.upper() == "KOLYE" and len(queries):
+                necklace_type_scores = queries[0] @ self.necklace_type_vectors.T
+                layered_necklace = bool(
+                    necklace_type_scores[0] > necklace_type_scores[1]
+                )
         search_index = self.index
         row_ids: np.ndarray | None = None
         if category and category in self.category_indexes:
@@ -263,11 +299,14 @@ class ProductSearchEngine:
             else None
         )
         if dino_queries is not None and category.upper() == "KOLYE":
-            if not macro_necklace:
-                # Full display-card necklace photos are already handled more
-                # reliably by CLIP. DINOv2 is decisive for near-square macro
-                # object photos where catalog/query scale differs drastically.
-                dino_queries = None
+            # Portrait shop photos may contain layered necklaces. The middle
+            # overlapping crops preserve the number/order of chains and
+            # pendants; tight crops are reserved for genuine macro photos.
+            dino_queries = select_necklace_dino_queries(
+                dino_queries,
+                macro_necklace=macro_necklace,
+                layered_necklace=layered_necklace,
+            )
         if dino_queries is not None and self.dino_index is not None:
             dino_requested = min(
                 self.dino_index.ntotal,
