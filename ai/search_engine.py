@@ -67,6 +67,16 @@ def count_blue_motif_centers(image: Image.Image) -> int:
     return int(np.count_nonzero((areas >= 60) & (areas <= 1500)))
 
 
+def structural_weights(category: str, *, macro_necklace: bool) -> tuple[float, float]:
+    """Return grayscale-object and color-instance weights by product geometry."""
+    normalized = category.upper()
+    if normalized == "KOLYE":
+        return 1.04, 1.18 if macro_necklace else 1.18
+    if normalized in {"BİLEKLİK", "HALHAL", "ŞAHMARAN", "GÖBEK ZİNCİRİ"}:
+        return 1.14, 1.08
+    return 1.10, 1.10
+
+
 def search_terms(value: str) -> set[str]:
     normalized = unicodedata.normalize("NFKC", value).casefold()
     return {
@@ -387,11 +397,14 @@ class ProductSearchEngine:
             object_scores, object_ids = self.object_index.search(
                 grayscale_queries, object_requested
             )
+            object_weight, _ = structural_weights(
+                category, macro_necklace=macro_necklace
+            )
             for view_scores, view_ids in zip(object_scores, object_ids):
                 for item_id, score in zip(view_ids, view_scores):
                     if item_id < 0:
                         continue
-                    weighted = float(score) * 1.04
+                    weighted = float(score) * object_weight
                     fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
         dino_queries = (
@@ -416,11 +429,14 @@ class ProductSearchEngine:
             dino_scores, dino_ids = self.dino_index.search(
                 dino_queries, dino_requested
             )
+            _, instance_weight = structural_weights(
+                category, macro_necklace=macro_necklace
+            )
             for view_scores, view_ids in zip(dino_scores, dino_ids):
                 for item_id, score in zip(view_ids, view_scores):
                     if item_id < 0:
                         continue
-                    weighted = float(score) * 1.18
+                    weighted = float(score) * instance_weight
                     fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
         ranked: list[tuple[float, dict[str, Any]]] = []

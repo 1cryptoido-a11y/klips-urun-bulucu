@@ -3,7 +3,11 @@ import unittest
 import numpy as np
 from PIL import Image, ImageDraw
 
-from ai.search_engine import count_blue_motif_centers, select_necklace_dino_queries
+from ai.search_engine import (
+    count_blue_motif_centers,
+    select_necklace_dino_queries,
+    structural_weights,
+)
 
 
 class NecklaceDinoRoutingTests(unittest.TestCase):
@@ -36,6 +40,17 @@ class NecklaceDinoRoutingTests(unittest.TestCase):
             color = (20, 100 + index, 180 + index * 3)
             draw.ellipse((center_x - 9, 245, center_x + 9, 263), fill=color)
         self.assertEqual(count_blue_motif_centers(image), 10)
+
+    def test_bracelet_profile_prefers_grayscale_structure(self) -> None:
+        object_weight, color_weight = structural_weights(
+            "BİLEKLİK", macro_necklace=False
+        )
+        self.assertGreater(object_weight, color_weight)
+
+    def test_necklace_profile_preserves_proven_instance_weight(self) -> None:
+        self.assertEqual(
+            structural_weights("KOLYE", macro_necklace=True), (1.04, 1.18)
+        )
 
 
 if __name__ == "__main__":
