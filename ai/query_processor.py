@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import threading
+import unicodedata
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -195,8 +196,44 @@ def _isolated_product_views(
     return focused, white
 
 
-def prepare_query_views(path: str | Path) -> list[Image.Image]:
-    """Return original, tightly focused, and white-background product views."""
+def _overlapping_axis_views(image: Image.Image, *, vertical: bool) -> list[Image.Image]:
+    """Split a photo into two overlapping regions without cutting its centre."""
+    overlap_ratio = 0.18
+    if vertical:
+        split = round(image.height * (0.5 + overlap_ratio / 2))
+        offset = image.height - split
+        return [image.crop((0, 0, image.width, split)), image.crop((0, offset, image.width, image.height))]
+    split = round(image.width * (0.5 + overlap_ratio / 2))
+    offset = image.width - split
+    return [image.crop((0, 0, split, image.height)), image.crop((offset, 0, image.width, image.height))]
+
+
+def _category_views(image: Image.Image, category: str) -> list[Image.Image]:
+    """Create views suited to long jewellery and multi-product shop photos."""
+    normalized = "".join(
+        character
+        for character in unicodedata.normalize("NFKD", category.strip().casefold())
+        if not unicodedata.combining(character)
+    )
+    if normalized in {"kolye", "kolyeler"}:
+        # Shop photos often contain two necklaces, one above the other. Searching
+        # each overlapping half lets either individual catalog product win.
+        return _overlapping_axis_views(image, vertical=True)
+    if normalized in {"bileklik", "bileklikler", "halhal", "halhallar"}:
+        # Bracelets may be mounted vertically on the edge of a large display card.
+        # Search both side regions and a rotated full view, where their shape is
+        # closer to the horizontal catalog photography.
+        edge_width = round(image.width * 0.46)
+        sides = [
+            image.crop((0, 0, edge_width, image.height)),
+            image.crop((image.width - edge_width, 0, image.width, image.height)),
+        ]
+        return [*sides, *(side.rotate(90, expand=True) for side in sides)]
+    return []
+
+
+def prepare_query_views(path: str | Path, category: str = "") -> list[Image.Image]:
+    """Return robust original, isolated, and category-aware product views."""
     with Image.open(path) as source:
         original = ImageOps.exif_transpose(source).convert("RGB")
     original.thumbnail((MAX_QUERY_SIZE, MAX_QUERY_SIZE), Image.Resampling.LANCZOS)
@@ -214,4 +251,5 @@ def prepare_query_views(path: str | Path) -> list[Image.Image]:
             views.append(cropped)
         elif screen is not None:
             views.append(screen)
+    views.extend(_category_views(focus_source, category))
     return views

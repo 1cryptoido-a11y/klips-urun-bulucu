@@ -42,6 +42,30 @@ class QueryProcessorTests(unittest.TestCase):
         self.assertEqual(views[2].size, (1024, 1024))
         self.assertEqual(views[2].getpixel((0, 0)), (255, 255, 255))
 
+    def test_necklace_category_adds_overlapping_vertical_regions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "two-necklaces.jpg"
+            Image.new("RGB", (600, 1000), "white").save(path)
+            with patch("ai.query_processor._background_mask", return_value=None):
+                views = prepare_query_views(path, "KOLYE")
+
+        self.assertEqual(len(views), 3)
+        self.assertEqual(views[-2].size, (600, 590))
+        self.assertEqual(views[-1].size, (600, 590))
+
+    def test_bracelet_category_adds_sides_and_rotated_view(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "vertical-bracelet.jpg"
+            Image.new("RGB", (600, 1000), "white").save(path)
+            with patch("ai.query_processor._background_mask", return_value=None):
+                views = prepare_query_views(path, "BİLEKLİK")
+
+        self.assertEqual(len(views), 5)
+        self.assertEqual(views[-4].size, (276, 1000))
+        self.assertEqual(views[-3].size, (276, 1000))
+        self.assertEqual(views[-2].size, (1000, 276))
+        self.assertEqual(views[-1].size, (1000, 276))
+
 
 if __name__ == "__main__":
     unittest.main()

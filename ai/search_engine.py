@@ -94,8 +94,8 @@ class ProductSearchEngine:
             category_index.add(np.ascontiguousarray(vectors[row_ids]))
             self.category_indexes[category] = (category_index, row_ids)
 
-    def _encode_images(self, image_path: str | Path) -> torch.Tensor:
-        views = prepare_query_views(image_path)
+    def _encode_images(self, image_path: str | Path, category: str = "") -> torch.Tensor:
+        views = prepare_query_views(image_path, category)
         tensor = torch.stack([self.preprocess(view) for view in views]).to(self.device)
         with torch.inference_mode():
             vectors = self.model.encode_image(tensor)
@@ -107,8 +107,10 @@ class ProductSearchEngine:
             vector = self.model.encode_text(tokens)
         return vector / vector.norm(dim=-1, keepdim=True)
 
-    def _query_vectors(self, image_path: str | Path | None, description: str) -> np.ndarray:
-        image_vectors = self._encode_images(image_path) if image_path else None
+    def _query_vectors(
+        self, image_path: str | Path | None, description: str, category: str = ""
+    ) -> np.ndarray:
+        image_vectors = self._encode_images(image_path, category) if image_path else None
         text_vector = self._encode_text(description) if description else None
         if image_vectors is None and text_vector is None:
             raise ValueError("A photo or description is required")
@@ -130,7 +132,7 @@ class ProductSearchEngine:
         category: str = "",
         limit: int = 8,
     ) -> list[dict[str, Any]]:
-        queries = self._query_vectors(image_path, description.strip())
+        queries = self._query_vectors(image_path, description.strip(), category)
         search_index = self.index
         row_ids: np.ndarray | None = None
         if category and category in self.category_indexes:
