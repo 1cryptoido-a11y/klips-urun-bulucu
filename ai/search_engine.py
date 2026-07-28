@@ -122,6 +122,34 @@ class ProductSearchEngine:
         self.visual_category_vectors = (
             category_text_vectors.float().cpu().numpy().astype("float32")
         )
+        self.visual_motif_labels = (
+            "nazar gözü",
+            "yonca",
+            "kalp",
+            "yıldız",
+            "kelebek",
+            "çiçek",
+            "inci",
+        )
+        motif_prompts = self.tokenizer(
+            [
+                "a jewelry product with a row of evil eye beads",
+                "a jewelry product with a clover charm",
+                "a jewelry product with a heart charm",
+                "a jewelry product with a star charm",
+                "a jewelry product with a butterfly charm",
+                "a jewelry product with a flower charm",
+                "a pearl jewelry product",
+            ]
+        ).to(self.device)
+        with torch.inference_mode():
+            motif_text_vectors = self.model.encode_text(motif_prompts)
+        motif_text_vectors = motif_text_vectors / motif_text_vectors.norm(
+            dim=-1, keepdim=True
+        )
+        self.visual_motif_vectors = (
+            motif_text_vectors.float().cpu().numpy().astype("float32")
+        )
         self.index = faiss.read_index(str(INDEX_FILE))
         self.grayscale_index = (
             faiss.read_index(str(GRAYSCALE_INDEX_FILE))
@@ -261,6 +289,7 @@ class ProductSearchEngine:
         queries = self._query_vectors(image_path, description.strip(), category)
         macro_necklace = False
         layered_necklace = False
+        visual_motif = ""
         if image_path and category.upper() == "KOLYE":
             with Image.open(image_path) as opened:
                 width, height = ImageOps.exif_transpose(opened).size
@@ -275,6 +304,14 @@ class ProductSearchEngine:
                 layered_necklace = bool(
                     necklace_type_scores[0] > necklace_type_scores[1]
                 )
+            if len(queries):
+                motif_scores = (queries @ self.visual_motif_vectors.T).max(axis=0)
+                order = np.argsort(motif_scores)[::-1]
+                if (
+                    motif_scores[order[0]] >= 0.28
+                    and motif_scores[order[0]] - motif_scores[order[1]] >= 0.035
+                ):
+                    visual_motif = self.visual_motif_labels[int(order[0])]
         search_index = self.index
         row_ids: np.ndarray | None = None
         if category and category in self.category_indexes:
@@ -386,6 +423,17 @@ class ProductSearchEngine:
                 adjusted = text_only_score(description, product, score)
             else:
                 adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
+                if visual_motif:
+                    metadata = " ".join(
+                        [
+                            str(product.get("aciklama", "")),
+                            " ".join(
+                                str(item) for item in product.get("arama_etiketleri", [])
+                            ),
+                        ]
+                    ).casefold()
+                    if visual_motif.casefold() in metadata:
+                        adjusted += 0.10
             ranked.append((adjusted, product))
 
         results: list[dict[str, Any]] = []

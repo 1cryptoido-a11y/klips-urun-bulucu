@@ -74,7 +74,7 @@
             <h3>{{ product.urun_adi or 'Klips Concept ürünü' }}</h3>
             {% if product.aciklama %}<p class="description">{{ product.aciklama }}</p>{% endif %}
             <p class="code">Kod: <strong>{{ product.kod }}</strong></p>
-            {% if product.puan is defined %}<p class="score">Benzerlik: %{{ (product.puan * 100)|round(1) }}</p>{% endif %}
+            {% if product.puan is defined %}<p class="score">Eşleşme sırası: #{{ loop.index }}</p>{% endif %}
           </div>
         </article>
         {% endfor %}
