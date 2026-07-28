@@ -1,5 +1,13 @@
 # Değişiklik geçmişi
 
+## 2026-07-28 – Metromall tam rapor eşitlemesi
+
+- 2023-07-01–2026-07-28 aralığındaki 10.937 benzersiz barkod mevcut katalogla karşılaştırıldı.
+- 5.370 yeni ürün kodu ve normalize edilmiş kaynak kategorisi kataloğa eklendi.
+- Kaynakta bulunan 625 yeni görsel doğrulandı, ayrıntılı açıklamaları üretildi ve FAISS indeksine eklendi.
+- Kaynakta görseli bulunmayan 4.745 kayıt kod/kategori aramasında tutuldu; bozuk veri görsel indeksine alınmadı.
+- Tekrarlanabilir ve gizli bilgi içermeyen `tools/import_report_snapshot.py` eşitleme aracı eklendi.
+
 ## 2026-07-28 – Birleşik üretim sürümü
 
 ### Mimari

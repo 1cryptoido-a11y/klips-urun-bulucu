@@ -124,6 +124,7 @@ gerçek fotoğraf ve doğru barkod birlikte saklanarak test setine eklenmelidir.
 | `ai/query_processor.py` | EXIF, ekran perspektifi, moiré ve otomatik ürün kırpma |
 | `ai/build_index.py` | Ürün görsellerinden FAISS indeksi oluşturma |
 | `tools/import_catalog.py` | Rapor verisini standart kataloğa dönüştürme |
+| `tools/import_report_snapshot.py` | Tam raporu katalogla karşılaştırma, kategorileri normalleştirme ve geçerli yeni görselleri indirme |
 | `tools/generate_descriptions.py` | Embeddinglerden görsel özellik/açıklama üretme |
 | `tools/caption_catalog_florence.py` | GPU ile görselleri nesne/motif açısından tarama |
 | `tools/apply_detailed_captions.py` | Captionları güvenli Türkçe alanlara dönüştürme |
