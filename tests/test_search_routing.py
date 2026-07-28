@@ -7,6 +7,7 @@ from ai.search_engine import (
     count_blue_motif_centers,
     necklace_identity_view_index,
     normalize_figure_profiles,
+    resolve_search_categories,
     select_necklace_dino_queries,
     structural_weights,
 )
@@ -48,6 +49,16 @@ class NecklaceDinoRoutingTests(unittest.TestCase):
             np.asarray([[0.5, 0.2, 0.1], [1.5, 1.2, 1.1]], dtype="float32")
         )
         np.testing.assert_allclose(profiles[0], profiles[1], atol=1e-6)
+
+    def test_inferred_category_routes_views_without_filtering_results(self) -> None:
+        self.assertEqual(
+            resolve_search_categories("", "TOKA"),
+            ("", "TOKA"),
+        )
+        self.assertEqual(
+            resolve_search_categories("KOLYE", "TOKA"),
+            ("KOLYE", "KOLYE"),
+        )
 
     def test_blue_motif_counter_ignores_shade_but_keeps_count(self) -> None:
         image = Image.new("RGB", (512, 512), "white")

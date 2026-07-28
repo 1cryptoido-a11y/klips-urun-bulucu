@@ -79,6 +79,14 @@ def normalize_figure_profiles(values: np.ndarray) -> np.ndarray:
     return centered / np.maximum(norms, 1e-8)
 
 
+def resolve_search_categories(
+    explicit_category: str, inferred_category: str = ""
+) -> tuple[str, str]:
+    """Separate a user filter from the category used to prepare image views."""
+    explicit = explicit_category.strip()
+    return explicit, explicit or inferred_category.strip()
+
+
 def select_necklace_dino_queries(
     queries: np.ndarray,
     *,
@@ -383,14 +391,22 @@ class ProductSearchEngine:
         category: str = "",
         limit: int = 8,
     ) -> list[dict[str, Any]]:
-        if image_path and not category:
-            category = self._infer_visual_category(image_path)
-        queries = self._query_vectors(image_path, description.strip(), category)
+        inferred_category = (
+            self._infer_visual_category(image_path)
+            if image_path and not category
+            else ""
+        )
+        category, route_category = resolve_search_categories(
+            category, inferred_category
+        )
+        queries = self._query_vectors(
+            image_path, description.strip(), route_category
+        )
         macro_necklace = False
         layered_necklace = False
         visual_motif = ""
         query_figure_profiles: np.ndarray | None = None
-        if image_path and category.upper() == "KOLYE":
+        if image_path and route_category.upper() == "KOLYE":
             with Image.open(image_path) as opened:
                 width, height = ImageOps.exif_transpose(opened).size
             macro_necklace = max(width, height) / max(min(width, height), 1) <= 1.18
@@ -403,7 +419,7 @@ class ProductSearchEngine:
                 query_figure_profiles = normalize_figure_profiles(
                     queries @ self.figure_vectors.T
                 ).astype("float32")
-            if category.upper() == "KOLYE" and len(queries):
+            if route_category.upper() == "KOLYE" and len(queries):
                 necklace_type_scores = queries[0] @ self.necklace_type_vectors.T
                 layered_necklace = bool(
                     necklace_type_scores[0] > necklace_type_scores[1]
@@ -430,7 +446,7 @@ class ProductSearchEngine:
         for view, (view_scores, view_ids) in enumerate(zip(scores, ids)):
             weight = 1.0 if view == 0 else FOCUSED_VIEW_WEIGHT
             if (
-                category.upper() == "KOLYE"
+                route_category.upper() == "KOLYE"
                 and view == necklace_identity_view_index(
                     len(scores),
                     preserve_silhouette=bool(visual_motif)
@@ -467,7 +483,7 @@ class ProductSearchEngine:
         if (
             grayscale_queries is not None
             and self.object_index is not None
-            and (category.upper() != "KOLYE" or macro_necklace)
+            and (route_category.upper() != "KOLYE" or macro_necklace)
         ):
             object_requested = min(
                 self.object_index.ntotal,
@@ -477,7 +493,7 @@ class ProductSearchEngine:
                 grayscale_queries, object_requested
             )
             object_weight, _ = structural_weights(
-                category, macro_necklace=macro_necklace
+                route_category, macro_necklace=macro_necklace
             )
             for view_scores, view_ids in zip(object_scores, object_ids):
                 for item_id, score in zip(view_ids, view_scores):
@@ -487,11 +503,11 @@ class ProductSearchEngine:
                     fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
         dino_queries = (
-            self._encode_dino_images(image_path, category)
+            self._encode_dino_images(image_path, route_category)
             if image_path and self.dino_index is not None
             else None
         )
-        if dino_queries is not None and category.upper() == "KOLYE":
+        if dino_queries is not None and route_category.upper() == "KOLYE":
             # Portrait shop photos may contain layered necklaces. The middle
             # overlapping crops preserve the number/order of chains and
             # pendants; tight crops are reserved for genuine macro photos.
@@ -509,7 +525,7 @@ class ProductSearchEngine:
                 dino_queries, dino_requested
             )
             _, instance_weight = structural_weights(
-                category, macro_necklace=macro_necklace
+                route_category, macro_necklace=macro_necklace
             )
             for view_scores, view_ids in zip(dino_scores, dino_ids):
                 for item_id, score in zip(view_ids, view_scores):
@@ -552,7 +568,7 @@ class ProductSearchEngine:
                         )
                     )
                     adjusted += 0.10 * max(0.0, figure_similarity)
-                if visual_motif and category.upper() == "KOLYE":
+                if visual_motif and route_category.upper() == "KOLYE":
                     # Compare the catalog image itself with the detected pendant
                     # concept. This breaks ties between otherwise identical
                     # white-card/thin-chain compositions using the actual model
@@ -563,7 +579,7 @@ class ProductSearchEngine:
                         reference_vector @ self.visual_motif_vectors[motif_index]
                     )
                     adjusted += 0.20 * max(0.0, motif_alignment - 0.20)
-                if visual_motif and category.upper() in {
+                if visual_motif and route_category.upper() in {
                     "BİLEKLİK",
                     "HALHAL",
                     "ŞAHMARAN",
