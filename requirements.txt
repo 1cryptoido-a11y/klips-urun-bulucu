@@ -10,3 +10,4 @@ open_clip_torch>=3,<4
 faiss-cpu>=1.11,<2
 opencv-python-headless>=4.10,<5
 rembg[cpu]>=2.0.76,<3
+timm>=1.0,<2

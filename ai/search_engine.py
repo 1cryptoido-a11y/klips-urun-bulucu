@@ -11,15 +11,17 @@ import faiss
 import numpy as np
 import open_clip
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 
 from config import (
     CATALOG_FILE,
     CATEGORY_SEARCH_CANDIDATES,
     CODES_FILE,
+    DINO_INDEX_FILE,
     IMAGE_WEIGHT,
     INDEX_FILE,
     MODEL_NAME,
+    OBJECT_INDEX_FILE,
     FOCUSED_VIEW_WEIGHT,
     GRAYSCALE_INDEX_FILE,
     PRETRAINED,
@@ -78,6 +80,31 @@ class ProductSearchEngine:
             if GRAYSCALE_INDEX_FILE.exists()
             else None
         )
+        self.object_index = (
+            faiss.read_index(str(OBJECT_INDEX_FILE))
+            if OBJECT_INDEX_FILE.exists()
+            else None
+        )
+        self.dino_index = (
+            faiss.read_index(str(DINO_INDEX_FILE))
+            if DINO_INDEX_FILE.exists()
+            else None
+        )
+        self.dino_model = None
+        self.dino_transform = None
+        if self.dino_index is not None:
+            import timm
+            from timm.data import create_transform, resolve_model_data_config
+
+            self.dino_model = timm.create_model(
+                "vit_small_patch14_dinov2.lvd142m",
+                pretrained=True,
+                num_classes=0,
+            ).to(self.device).eval()
+            self.dino_transform = create_transform(
+                **resolve_model_data_config(self.dino_model),
+                is_training=False,
+            )
         with CODES_FILE.open("r", encoding="utf-8") as handle:
             self.codes: list[str] = json.load(handle)
         with CATALOG_FILE.open("r", encoding="utf-8") as handle:
@@ -89,6 +116,10 @@ class ProductSearchEngine:
             raise RuntimeError("FAISS index and code list have different lengths")
         if self.grayscale_index is not None and self.grayscale_index.ntotal != len(self.codes):
             raise RuntimeError("Grayscale index and code list have different lengths")
+        if self.object_index is not None and self.object_index.ntotal != len(self.codes):
+            raise RuntimeError("Object index and code list have different lengths")
+        if self.dino_index is not None and self.dino_index.ntotal != len(self.codes):
+            raise RuntimeError("DINOv2 index and code list have different lengths")
         self.category_indexes: dict[str, tuple[faiss.IndexFlatIP, np.ndarray]] = {}
         vectors = self.index.reconstruct_n(0, self.index.ntotal).astype("float32")
         category_rows: dict[str, list[int]] = {}
@@ -114,6 +145,21 @@ class ProductSearchEngine:
         with torch.inference_mode():
             vector = self.model.encode_text(tokens)
         return vector / vector.norm(dim=-1, keepdim=True)
+
+    def _encode_dino_images(
+        self, image_path: str | Path, category: str
+    ) -> np.ndarray | None:
+        if self.dino_model is None or self.dino_transform is None:
+            return None
+        views = prepare_query_views(image_path, category)
+        color_views = views[: len(views) // 2]
+        tensor = torch.stack([self.dino_transform(view) for view in color_views]).to(
+            self.device
+        )
+        with torch.inference_mode():
+            vectors = self.dino_model(tensor)
+        vectors = vectors / vectors.norm(dim=-1, keepdim=True)
+        return vectors.float().cpu().numpy().astype("float32")
 
     def _query_vectors(
         self, image_path: str | Path | None, description: str, category: str = ""
@@ -141,6 +187,11 @@ class ProductSearchEngine:
         limit: int = 8,
     ) -> list[dict[str, Any]]:
         queries = self._query_vectors(image_path, description.strip(), category)
+        macro_necklace = False
+        if image_path and category.upper() == "KOLYE":
+            with Image.open(image_path) as opened:
+                width, height = ImageOps.exif_transpose(opened).size
+            macro_necklace = max(width, height) / max(min(width, height), 1) <= 1.18
         grayscale_queries: np.ndarray | None = None
         if image_path:
             color_view_count = len(queries) // 2
@@ -185,6 +236,51 @@ class ProductSearchEngine:
                     if item_id < 0:
                         continue
                     weighted = float(score) * FOCUSED_VIEW_WEIGHT
+                    fused[item_id] = max(fused.get(item_id, -1.0), weighted)
+
+        if (
+            grayscale_queries is not None
+            and self.object_index is not None
+            and (category.upper() != "KOLYE" or macro_necklace)
+        ):
+            object_requested = min(
+                self.object_index.ntotal,
+                max(SEARCH_CANDIDATES, CATEGORY_SEARCH_CANDIDATES * 3 if category else 0),
+            )
+            object_scores, object_ids = self.object_index.search(
+                grayscale_queries, object_requested
+            )
+            for view_scores, view_ids in zip(object_scores, object_ids):
+                for item_id, score in zip(view_ids, view_scores):
+                    if item_id < 0:
+                        continue
+                    weighted = float(score) * 1.04
+                    fused[item_id] = max(fused.get(item_id, -1.0), weighted)
+
+        dino_queries = (
+            self._encode_dino_images(image_path, category)
+            if image_path and self.dino_index is not None
+            else None
+        )
+        if dino_queries is not None and category.upper() == "KOLYE":
+            if not macro_necklace:
+                # Full display-card necklace photos are already handled more
+                # reliably by CLIP. DINOv2 is decisive for near-square macro
+                # object photos where catalog/query scale differs drastically.
+                dino_queries = None
+        if dino_queries is not None and self.dino_index is not None:
+            dino_requested = min(
+                self.dino_index.ntotal,
+                max(SEARCH_CANDIDATES, CATEGORY_SEARCH_CANDIDATES * 3 if category else 0),
+            )
+            dino_scores, dino_ids = self.dino_index.search(
+                dino_queries, dino_requested
+            )
+            for view_scores, view_ids in zip(dino_scores, dino_ids):
+                for item_id, score in zip(view_ids, view_scores):
+                    if item_id < 0:
+                        continue
+                    weighted = float(score) * 1.18
                     fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
         ranked: list[tuple[float, dict[str, Any]]] = []

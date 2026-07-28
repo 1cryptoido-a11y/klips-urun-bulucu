@@ -208,6 +208,22 @@ def _overlapping_axis_views(image: Image.Image, *, vertical: bool) -> list[Image
     return [image.crop((0, 0, split, image.height)), image.crop((offset, 0, image.width, image.height))]
 
 
+def _padded_scale_view(image: Image.Image, scale: float) -> Image.Image:
+    """Place a close-up on white so its object scale matches catalog photos."""
+    target = round(ISOLATED_CANVAS_SIZE * scale)
+    resized = image.copy()
+    resized.thumbnail((target, target), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGB", (ISOLATED_CANVAS_SIZE, ISOLATED_CANVAS_SIZE), "white")
+    canvas.paste(
+        resized,
+        (
+            (ISOLATED_CANVAS_SIZE - resized.width) // 2,
+            (ISOLATED_CANVAS_SIZE - resized.height) // 2,
+        ),
+    )
+    return canvas
+
+
 def _category_views(image: Image.Image, category: str) -> list[Image.Image]:
     """Create views suited to long jewellery and multi-product shop photos."""
     normalized = "".join(
@@ -242,6 +258,10 @@ def _category_views(image: Image.Image, category: str) -> list[Image.Image]:
                 )
             )
         )
+        if max(image.size) / max(min(image.size), 1) <= 1.18:
+            regions.extend(
+                (_padded_scale_view(image, 0.62), _padded_scale_view(image, 0.44))
+            )
         return regions
     if normalized in {"bileklik", "bileklikler", "halhal", "halhallar"}:
         # Bracelets may be mounted vertically on the edge of a large display card.
