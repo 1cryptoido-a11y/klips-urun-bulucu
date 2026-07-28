@@ -17,7 +17,7 @@ from transformers import AutoModelForCausalLM, AutoProcessor
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 MODEL_ID = "microsoft/Florence-2-base-ft"
 MODEL_REVISION = "f6c1a25888ffc1d945ee8a1a77ac833c7303d46e"
-TASK = "<CAPTION>"
+DEFAULT_TASK = "<CAPTION>"
 
 
 def image_map(directories: list[Path]) -> dict[str, Path]:
@@ -65,6 +65,12 @@ def main() -> int:
     parser.add_argument("--beams", type=int, default=1)
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--max-items", type=int)
+    parser.add_argument("--model-id", default=MODEL_ID)
+    parser.add_argument(
+        "--task",
+        default=DEFAULT_TASK,
+        choices=("<CAPTION>", "<DETAILED_CAPTION>", "<MORE_DETAILED_CAPTION>"),
+    )
     args = parser.parse_args()
 
     catalog: list[dict] = json.loads(args.catalog.read_text(encoding="utf-8"))
@@ -83,15 +89,16 @@ def main() -> int:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dtype = torch.float16 if device.type == "cuda" else torch.float32
+    revision = MODEL_REVISION if args.model_id == MODEL_ID else "main"
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID,
-        revision=MODEL_REVISION,
+        args.model_id,
+        revision=revision,
         torch_dtype=dtype,
         trust_remote_code=True,
         attn_implementation="eager",
     ).to(device).eval()
     processor = AutoProcessor.from_pretrained(
-        MODEL_ID, revision=MODEL_REVISION, trust_remote_code=True
+        args.model_id, revision=revision, trust_remote_code=True
     )
 
     args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
@@ -108,7 +115,7 @@ def main() -> int:
             if not valid:
                 continue
             images = [item[2] for item in valid]
-            inputs = processor(text=[TASK] * len(images), images=images, return_tensors="pt").to(
+            inputs = processor(text=[args.task] * len(images), images=images, return_tensors="pt").to(
                 device, dtype
             )
             with torch.inference_mode():
@@ -118,9 +125,9 @@ def main() -> int:
             texts = processor.batch_decode(generated, skip_special_tokens=False)
             for (code, path, image), generated_text in zip(valid, texts):
                 parsed = processor.post_process_generation(
-                    generated_text, task=TASK, image_size=image.size
+                    generated_text, task=args.task, image_size=image.size
                 )
-                caption = str(parsed.get(TASK, "")).strip()
+                caption = str(parsed.get(args.task, "")).strip()
                 caption = re.sub(r"<[^>]+>", " ", caption)
                 caption = re.sub(r"\s+", " ", caption)
                 output.write(

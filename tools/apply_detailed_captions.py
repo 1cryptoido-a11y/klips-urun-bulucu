@@ -38,6 +38,8 @@ MOTIFS = [
     ("nazar gözü", ("evil eye",)),
     ("uğur böceği", ("ladybug", "ladybird")),
     ("deniz kabuğu", ("seashell", "sea shell")),
+    ("satürn", ("saturn", "ringed planet")),
+    ("gezegen", ("planet",)),
     ("yonca", ("clover",)),
     ("kalp", ("heart",)),
     ("kelebek", ("butterfly",)),
@@ -66,6 +68,13 @@ MOTIFS = [
     ("taç", ("crown",)),
     ("fiyonk", ("bow shaped", "ribbon bow")),
     ("kiraz", ("cherry",)),
+    ("pusula", ("compass", "compass rose")),
+    ("kanat", ("wing", "wings")),
+    ("baykuş", ("owl",)),
+    ("yunus", ("dolphin",)),
+    ("at", ("horse",)),
+    ("tavşan", ("rabbit", "bunny")),
+    ("köpek", ("dog",)),
 ]
 
 METAL_COLORS = [
@@ -125,24 +134,33 @@ def attribute_caption(caption: str) -> str:
 
 def first_match(text: str, choices: list[tuple[str, tuple[str, ...]]]) -> str:
     for label, aliases in choices:
-        if any(alias in text for alias in aliases):
+        if any(alias_matches(text, alias) for alias in aliases):
             return label
     return ""
 
 
 def all_matches(text: str, choices: list[tuple[str, tuple[str, ...]]], limit: int = 2) -> list[str]:
-    return [label for label, aliases in choices if any(alias in text for alias in aliases)][:limit]
+    return [
+        label for label, aliases in choices
+        if any(alias_matches(text, alias) for alias in aliases)
+    ][:limit]
+
+
+def alias_matches(text: str, alias: str) -> bool:
+    """Match complete English words, never fragments such as red in covered."""
+    pattern = rf"(?<![a-z]){re.escape(alias)}(?![a-z])"
+    return re.search(pattern, text) is not None
 
 
 def build_description(
-    product: dict, color: str, accent: str, motif: str, details: list[str], form: str,
+    product: dict, color: str, accent: str, motifs: list[str], details: list[str], form: str,
     object_name: str = "",
 ) -> str:
     parts = [color]
     if accent and accent not in color:
         parts.append(f"{accent} renkli")
-    if motif:
-        parts.append(f"{motif} figürlü")
+    if motifs:
+        parts.append(f"{' ve '.join(motifs)} figürlü")
     parts.extend(details)
     if form:
         parts.append(form)
@@ -182,24 +200,25 @@ def main() -> int:
         existing = product.get("gorsel_ozellikler") or {}
         color = first_match(relevant, METAL_COLORS) or str(existing.get("renk") or "özel tonlu")
         accent = first_match(relevant, ACCENT_COLORS)
-        motif = first_match(relevant, MOTIFS)
+        motif_list = all_matches(relevant, MOTIFS, limit=4)
         details = all_matches(relevant, DETAILS)
         form = first_match(relevant, FORMS)
         object_name = first_match(relevant, OBJECTS)
         product["gorsel_ozellikler_detayli"] = {
-            "renk": color, "renk_detayi": accent, "motif": motif,
+            "renk": color, "renk_detayi": accent,
+            "motif": motif_list[0] if motif_list else "", "motifler": motif_list,
             "detaylar": details, "form": form, "obje": object_name,
         }
         product["arama_etiketleri"] = [
             value
-            for value in [product["kategori"], color, accent, motif, *details, form, object_name]
+            for value in [product["kategori"], color, accent, *motif_list, *details, form, object_name]
             if value
         ]
         product["aciklama"] = build_description(
-            product, color, accent, motif, details, form, object_name
+            product, color, accent, motif_list, details, form, object_name
         )
         enriched += 1
-        motifs += bool(motif)
+        motifs += bool(motif_list)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     atomic_json(args.output, catalog)
