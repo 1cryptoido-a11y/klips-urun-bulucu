@@ -41,11 +41,11 @@ class NecklaceDinoRoutingTests(unittest.TestCase):
             draw.ellipse((center_x - 9, 245, center_x + 9, 263), fill=color)
         self.assertEqual(count_blue_motif_centers(image), 10)
 
-    def test_bracelet_profile_prefers_grayscale_structure(self) -> None:
+    def test_bracelet_profile_preserves_candidates_for_geometry_reranking(self) -> None:
         object_weight, color_weight = structural_weights(
             "BİLEKLİK", macro_necklace=False
         )
-        self.assertGreater(object_weight, color_weight)
+        self.assertEqual((object_weight, color_weight), (1.04, 1.18))
 
     def test_necklace_profile_preserves_proven_instance_weight(self) -> None:
         self.assertEqual(

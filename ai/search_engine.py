@@ -73,7 +73,9 @@ def structural_weights(category: str, *, macro_necklace: bool) -> tuple[float, f
     if normalized == "KOLYE":
         return 1.04, 1.18 if macro_necklace else 1.18
     if normalized in {"BİLEKLİK", "HALHAL", "ŞAHMARAN", "GÖBEK ZİNCİRİ"}:
-        return 1.14, 1.08
+        # Repeated-motif geometry is applied in the final reranker for these
+        # categories; retain the proven retrieval weights for candidate recall.
+        return 1.04, 1.18
     return 1.10, 1.10
 
 
@@ -461,7 +463,12 @@ class ProductSearchEngine:
                 adjusted = text_only_score(description, product, score)
             else:
                 adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
-                if visual_motif:
+                if visual_motif and category.upper() in {
+                    "BİLEKLİK",
+                    "HALHAL",
+                    "ŞAHMARAN",
+                    "GÖBEK ZİNCİRİ",
+                }:
                     metadata = " ".join(
                         [
                             str(product.get("aciklama", "")),
