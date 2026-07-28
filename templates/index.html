@@ -27,6 +27,13 @@
 
         <label for="foto">Ürün fotoğrafı</label>
         <input id="foto" name="foto" type="file" accept="image/*,.heic,.heif">
+        <div id="query-preview" class="query-preview{% if not query_preview %} is-hidden{% endif %}">
+          <div class="query-preview-heading">
+            <strong>Aranacak görsel</strong>
+            <span id="query-preview-note">{% if query_preview %}Aramada kullandığınız fotoğraf{% else %}Seçtiğiniz fotoğraf{% endif %}</span>
+          </div>
+          <img id="query-preview-image" src="{{ query_preview or '' }}" alt="Arama için seçilen ürün fotoğrafı">
+        </div>
 
         <label for="aciklama">Açıklama <span>(isteğe bağlı)</span></label>
         <textarea id="aciklama" name="aciklama" rows="3" placeholder="Örn. altın renkli, taşlı kalp kolye">{{ description or '' }}</textarea>
@@ -70,5 +77,30 @@
     </section>
     {% endif %}
   </main>
+  <script>
+    (() => {
+      const input = document.getElementById('foto');
+      const preview = document.getElementById('query-preview');
+      const image = document.getElementById('query-preview-image');
+      const note = document.getElementById('query-preview-note');
+      let objectUrl = null;
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) {
+          preview.classList.add('is-hidden');
+          image.removeAttribute('src');
+          return;
+        }
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        objectUrl = URL.createObjectURL(file);
+        image.src = objectUrl;
+        note.textContent = file.name;
+        preview.classList.remove('is-hidden');
+        image.onerror = () => {
+          note.textContent = 'HEIC görseli aramadan sonra dönüştürülerek gösterilecek';
+        };
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+import base64
+from io import BytesIO
 from pathlib import Path
 
 from flask import Flask, abort, render_template, request, send_file
-from PIL import UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
 from ai.search_engine import get_engine
@@ -24,6 +26,17 @@ def load_categories() -> list[str]:
     with CATALOG_FILE.open("r", encoding="utf-8") as handle:
         products = json.load(handle)
     return sorted({p.get("kategori", "") for p in products if p.get("kategori")})
+
+
+def make_query_preview(path: str | Path) -> str:
+    """Create a compact browser-safe preview that survives the result response."""
+    with Image.open(path) as opened:
+        preview = opened.convert("RGB")
+    preview.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
+    buffer = BytesIO()
+    preview.save(buffer, "JPEG", quality=88, optimize=True)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
 
 
 def create_app() -> Flask:
@@ -49,12 +62,14 @@ def create_app() -> Flask:
         try:
             with tempfile.TemporaryDirectory(prefix="klips-search-") as temp_dir:
                 image_path: Path | None = None
+                query_preview: str | None = None
                 if photo and photo.filename:
                     original = Path(temp_dir) / "query"
                     photo.save(original)
                     image_path = normalize_uploaded_image(
                         original, Path(temp_dir) / "query.jpg"
                     )
+                    query_preview = make_query_preview(image_path)
                 results = get_engine().search(
                     image_path=image_path,
                     description=description,
@@ -79,6 +94,7 @@ def create_app() -> Flask:
             results=results,
             selected_category=category,
             description=description,
+            query_preview=query_preview,
         )
 
     @app.post("/kod")
