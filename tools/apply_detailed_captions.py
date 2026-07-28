@@ -14,7 +14,22 @@ from pathlib import Path
 PRODUCT_WORDS = (
     "necklace", "pendant", "earring", "bracelet", "ring", "anklet", "brooch",
     "jewelry", "jewellery", "chain", "keychain", "hair clip", "hair accessory",
+    "book", "notebook", "toy", "tape", "container", "sticker", "glasses",
+    "basket", "pen", "scissors", "watch", "bag", "wallet", "headband",
 )
+
+OBJECTS = [
+    ("çocuk kitabı", ("children's book", "childrens book")),
+    ("defter", ("notebook", "spiral book")),
+    ("oyuncak", ("toy",)),
+    ("dekoratif bant", ("rolls of tape", "package of tape")),
+    ("saklama kabı", ("plastic container", "containers")),
+    ("çıkartma", ("sticker",)),
+    ("parti gözlüğü", ("glasses",)),
+    ("sepet", ("basket",)),
+    ("kalem", ("a pen", "the pen")),
+    ("makas", ("scissors",)),
+]
 
 MOTIFS = [
     ("dört yapraklı yonca", ("four-leaf clover", "four leaf clover")),
@@ -55,7 +70,7 @@ MOTIFS = [
 
 METAL_COLORS = [
     ("rose tonlu", ("rose gold", "rose-gold")),
-    ("altın tonlu", ("gold colored", "gold-coloured", "gold in color", "gold-tone", "golden")),
+    ("altın tonlu", ("gold colored", "gold-coloured", "gold in color", "gold-tone", "golden", "gold")),
     ("gümüş tonlu", ("silver colored", "silver-coloured", "silver in color", "silver-tone", "silver")),
     ("çok renkli", ("multicolored", "multi-colored", "colorful")),
 ]
@@ -120,7 +135,8 @@ def all_matches(text: str, choices: list[tuple[str, tuple[str, ...]]], limit: in
 
 
 def build_description(
-    product: dict, color: str, accent: str, motif: str, details: list[str], form: str
+    product: dict, color: str, accent: str, motif: str, details: list[str], form: str,
+    object_name: str = "",
 ) -> str:
     parts = [color]
     if accent and accent not in color:
@@ -130,7 +146,9 @@ def build_description(
     parts.extend(details)
     if form:
         parts.append(form)
-    category = str(product["kategori"]).translate(str.maketrans({"I": "ı", "İ": "i"})).lower()
+    category = object_name or str(product["kategori"]).translate(
+        str.maketrans({"I": "ı", "İ": "i"})
+    ).lower()
     return f"{', '.join(parts).capitalize()} {category}."
 
 
@@ -167,14 +185,19 @@ def main() -> int:
         motif = first_match(relevant, MOTIFS)
         details = all_matches(relevant, DETAILS)
         form = first_match(relevant, FORMS)
+        object_name = first_match(relevant, OBJECTS)
         product["gorsel_ozellikler_detayli"] = {
             "renk": color, "renk_detayi": accent, "motif": motif,
-            "detaylar": details, "form": form
+            "detaylar": details, "form": form, "obje": object_name,
         }
         product["arama_etiketleri"] = [
-            value for value in [product["kategori"], color, accent, motif, *details, form] if value
+            value
+            for value in [product["kategori"], color, accent, motif, *details, form, object_name]
+            if value
         ]
-        product["aciklama"] = build_description(product, color, accent, motif, details, form)
+        product["aciklama"] = build_description(
+            product, color, accent, motif, details, form, object_name
+        )
         enriched += 1
         motifs += bool(motif)
 

@@ -127,6 +127,9 @@ gerçek fotoğraf ve doğru barkod birlikte saklanarak test setine eklenmelidir.
 | `tools/generate_descriptions.py` | Embeddinglerden görsel özellik/açıklama üretme |
 | `tools/caption_catalog_florence.py` | GPU ile görselleri nesne/motif açısından tarama |
 | `tools/apply_detailed_captions.py` | Captionları güvenli Türkçe alanlara dönüştürme |
+| `tools/import_order_pdfs.py` | Sipariş PDF'lerinden barkod ve orijinal ürün görseli çıkarma |
+| `tools/build_pdf_catalog.py` | PDF ürünlerini caption tabanlı kategorilere dönüştürme |
+| `tools/append_index.py` | Yeni ürün vektörlerini mevcut FAISS indeksine güvenli ekleme |
 | `tools/merge_old_archive.py` | Doğrulanmış eski arşivi kod bazında birleştirme |
 | `templates/`, `static/` | Web arayüzü |
 | `deploy/` | Nginx ve systemd örnekleri |

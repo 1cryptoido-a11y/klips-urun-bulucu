@@ -66,3 +66,13 @@
   filtreleme uygulandı.
 - Açıklama sorgularında yapılandırılmış etiketlere düşük ağırlıklı kelime
   eşleşme reranking desteği eklendi.
+
+### Sipariş PDF'lerinden yeni ürün aktarımı
+
+- 140 PDF ve 1.387 sayfa açılabilirlik ve yerleşim açısından tarandı.
+- Birebir aynı 38 PDF tekrarı ayrıldı; 102 benzersiz PDF işlendi.
+- PDF içindeki orijinal ürün görselleri barkod satırlarıyla eşleştirildi.
+- 2.649 benzersiz barkodlu görsel bulundu; mevcut 2.222 ürün tekrar eklenmedi.
+- 427 yeni ürün kategori, otomatik açıklama, görsel ve CLIP vektörüyle eklendi.
+- Katalog 65.476 ürüne, aranabilir görsel/vektör sayısı 65.231'e çıktı.
+- Yeni ürünlerde rastgele 12 görselin tamamı doğru barkodu ilk sırada buldu.
