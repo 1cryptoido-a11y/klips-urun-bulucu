@@ -211,6 +211,12 @@ class ProductSearchEngine:
 
     def _encode_images(self, image_path: str | Path, category: str = "") -> torch.Tensor:
         views = prepare_query_views(image_path, category)
+        if category.upper() == "BİLEKLİK" and len(views) >= 6:
+            color_count = len(views) // 2
+            selected = [0, 3, color_count - 2, color_count - 1]
+            views = [views[index] for index in selected] + [
+                views[color_count + index] for index in selected
+            ]
         tensor = torch.stack([self.preprocess(view) for view in views]).to(self.device)
         with torch.inference_mode():
             vectors = self.model.encode_image(tensor)
@@ -251,6 +257,8 @@ class ProductSearchEngine:
             return None
         views = prepare_query_views(image_path, category)
         color_views = views[: len(views) // 2]
+        if category.upper() == "BİLEKLİK" and len(color_views) >= 3:
+            color_views = [color_views[0], color_views[3], color_views[-2], color_views[-1]]
         tensor = torch.stack([self.dino_transform(view) for view in color_views]).to(
             self.device
         )
