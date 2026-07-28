@@ -76,3 +76,12 @@
 - 427 yeni ürün kategori, otomatik açıklama, görsel ve CLIP vektörüyle eklendi.
 - Katalog 65.476 ürüne, aranabilir görsel/vektör sayısı 65.231'e çıktı.
 - Yeni ürünlerde rastgele 12 görselin tamamı doğru barkodu ilk sırada buldu.
+
+### Metromall günlük katalog kontrolü
+
+- 2026-07-28 tarihli Metromall raporundaki 10 barkod mevcut katalogla karşılaştırıldı.
+- Mevcut sekiz ürün çoğaltılmadan korundu.
+- `131921` kaynak kategorisi KÜPE, `132569` kaynak kategorisi KOLYE olarak eklendi.
+- İki ürünün 480x480 kaynak görselleri, ayrıntılı açıklamaları ve CLIP vektörleri eklendi.
+- Katalog 65.478 ürüne, aranabilir görsel/vektör sayısı 65.233'e çıktı.
+- Her iki kaynak görsel de canlı aramada doğru barkodu ilk sırada buldu.
