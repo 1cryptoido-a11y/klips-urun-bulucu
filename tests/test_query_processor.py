@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
@@ -30,11 +31,16 @@ class QueryProcessorTests(unittest.TestCase):
             draw.ellipse((280, 160, 520, 440), fill=(180, 120, 20))
             image.save(path)
 
-            views = prepare_query_views(path)
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).ellipse((280, 160, 520, 440), fill=255)
+            with patch("ai.query_processor._background_mask", return_value=mask):
+                views = prepare_query_views(path)
 
-        self.assertEqual(len(views), 2)
+        self.assertEqual(len(views), 3)
         self.assertLess(views[1].width, views[0].width)
         self.assertLess(views[1].height, views[0].height)
+        self.assertEqual(views[2].size, (1024, 1024))
+        self.assertEqual(views[2].getpixel((0, 0)), (255, 255, 255))
 
 
 if __name__ == "__main__":

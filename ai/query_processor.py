@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import threading
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -14,6 +16,9 @@ except ImportError:  # The application still supports basic search without it.
 
 
 MAX_QUERY_SIZE = 1400
+ISOLATED_CANVAS_SIZE = 1024
+_rembg_session = None
+_rembg_lock = threading.Lock()
 
 
 def normalize_uploaded_image(source: str | Path, destination: str | Path) -> Path:
@@ -132,18 +137,81 @@ def _foreground_crop(image: Image.Image) -> Image.Image | None:
     )
 
 
+def _background_mask(image: Image.Image) -> Image.Image | None:
+    """Return an AI foreground mask, while keeping background removal optional."""
+    global _rembg_session
+    model_directory = Path(__file__).resolve().parent.parent / "cache" / "models" / "u2net"
+    os.environ.setdefault("U2NET_HOME", str(model_directory))
+    try:
+        from rembg import new_session, remove
+    except ImportError:
+        return None
+    try:
+        with _rembg_lock:
+            if _rembg_session is None:
+                _rembg_session = new_session("u2net")
+            return remove(image, session=_rembg_session, only_mask=True).convert("L")
+    except Exception:
+        return None
+
+
+def _isolated_product_views(
+    image: Image.Image, mask: Image.Image
+) -> tuple[Image.Image, Image.Image] | None:
+    """Create a tight original crop and a centered white-background product view."""
+    if mask.size != image.size:
+        mask = mask.resize(image.size, Image.Resampling.LANCZOS)
+    alpha = np.asarray(mask, dtype=np.uint8)
+    foreground = alpha >= 24
+    rows, columns = np.where(foreground)
+    if len(rows) < 64 or len(columns) < 64:
+        return None
+    left, right = int(columns.min()), int(columns.max()) + 1
+    top, bottom = int(rows.min()), int(rows.max()) + 1
+    box_area = (right - left) * (bottom - top)
+    image_area = image.width * image.height
+    if box_area > image_area * 0.90 or foreground.mean() < 0.002:
+        return None
+
+    padding = max(10, round(max(right - left, bottom - top) * 0.16))
+    crop_box = (
+        max(0, left - padding), max(0, top - padding),
+        min(image.width, right + padding), min(image.height, bottom + padding),
+    )
+    focused = image.crop(crop_box)
+    cutout = image.crop(crop_box).convert("RGBA")
+    cutout.putalpha(mask.crop(crop_box))
+    scale = min(820 / cutout.width, 820 / cutout.height)
+    target_size = (
+        max(1, round(cutout.width * scale)), max(1, round(cutout.height * scale))
+    )
+    cutout = cutout.resize(target_size, Image.Resampling.LANCZOS)
+    white = Image.new("RGB", (ISOLATED_CANVAS_SIZE, ISOLATED_CANVAS_SIZE), "white")
+    position = (
+        (ISOLATED_CANVAS_SIZE - cutout.width) // 2,
+        (ISOLATED_CANVAS_SIZE - cutout.height) // 2,
+    )
+    white.paste(cutout, position, cutout)
+    return focused, white
+
+
 def prepare_query_views(path: str | Path) -> list[Image.Image]:
-    """Return complementary views so background and framing cannot dominate."""
+    """Return original, tightly focused, and white-background product views."""
     with Image.open(path) as source:
         original = ImageOps.exif_transpose(source).convert("RGB")
     original.thumbnail((MAX_QUERY_SIZE, MAX_QUERY_SIZE), Image.Resampling.LANCZOS)
 
     views = [original]
     screen = _screen_view(original)
-    if screen is not None:
-        views.append(screen)
     focus_source = screen if screen is not None else original
-    cropped = _foreground_crop(focus_source)
-    if cropped is not None and min(cropped.size) >= 48:
-        views.append(cropped)
+    mask = _background_mask(focus_source)
+    isolated = _isolated_product_views(focus_source, mask) if mask is not None else None
+    if isolated is not None:
+        views.extend(isolated)
+    else:
+        cropped = _foreground_crop(focus_source)
+        if cropped is not None and min(cropped.size) >= 48:
+            views.append(cropped)
+        elif screen is not None:
+            views.append(screen)
     return views
