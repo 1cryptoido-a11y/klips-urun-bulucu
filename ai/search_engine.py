@@ -57,6 +57,12 @@ def lexical_score(description: str, product: dict[str, Any]) -> float:
     return len(overlap) / len(query)
 
 
+def text_only_score(description: str, product: dict[str, Any], clip_score: float) -> float:
+    """Prefer exact Turkish catalog metadata; use CLIP only as a tie-breaker."""
+    lexical = lexical_score(description, product)
+    return (0.85 * lexical) + (0.15 * max(clip_score, 0.0))
+
+
 class ProductSearchEngine:
     def __init__(self) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -147,12 +153,27 @@ class ProductSearchEngine:
                 fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
         ranked: list[tuple[float, dict[str, Any]]] = []
-        for item_id, score in fused.items():
+        candidate_ids = set(fused)
+        if description and image_path is None:
+            # Turkish descriptions and motif names are substantially more reliable
+            # in catalog metadata than in the English-heavy CLIP text encoder. Add
+            # every indexed lexical match so it cannot be excluded by FAISS recall.
+            for item_id, code in enumerate(self.codes):
+                product = self.products.get(code)
+                if product and (not category or product.get("kategori") == category):
+                    if lexical_score(description, product) > 0:
+                        candidate_ids.add(item_id)
+
+        for item_id in candidate_ids:
+            score = fused.get(item_id, 0.0)
             code = self.codes[item_id]
             product = self.products.get(code)
             if not product or (category and product.get("kategori") != category):
                 continue
-            adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
+            if description and image_path is None:
+                adjusted = text_only_score(description, product, score)
+            else:
+                adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
             ranked.append((adjusted, product))
 
         results: list[dict[str, Any]] = []
