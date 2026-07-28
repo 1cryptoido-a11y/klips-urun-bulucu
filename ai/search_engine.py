@@ -38,6 +38,46 @@ STOP_WORDS = {
     "detaylı", "detayli", "figürlü", "figurlu", "model", "tasarım",
 }
 
+FIGURE_PROMPTS = (
+    "a jewelry product with a key shaped motif or charm",
+    "a jewelry product with a heart shaped motif or charm",
+    "a jewelry product with a flower shaped motif or charm",
+    "a jewelry product with a star shaped motif or charm",
+    "a jewelry product with a leaf shaped motif or charm",
+    "a jewelry product with an evil eye motif or charm",
+    "a jewelry product with a butterfly shaped motif or charm",
+    "a jewelry product with a starfish shaped motif or charm",
+    "a jewelry product with a crescent moon shaped motif or charm",
+    "a jewelry product with a bird shaped motif or charm",
+    "a jewelry product with a cat shaped motif or charm",
+    "a jewelry product with a clover shaped motif or charm",
+    "a jewelry product with a fish shaped motif or charm",
+    "a jewelry product with a crown shaped motif or charm",
+    "a jewelry product with a wing shaped motif or charm",
+    "a jewelry product with an owl shaped motif or charm",
+    "a jewelry product with an elephant shaped motif or charm",
+    "a jewelry product with a snake shaped motif or charm",
+    "a jewelry product with a feather shaped motif or charm",
+    "a jewelry product with an infinity symbol motif or charm",
+    "a jewelry product with an angel shaped motif or charm",
+    "a jewelry product with a dragonfly shaped motif or charm",
+    "a jewelry product with an anchor shaped motif or charm",
+    "a jewelry product with a turtle shaped motif or charm",
+    "a jewelry product with a dog shaped motif or charm",
+    "a jewelry product with a cross shaped motif or charm",
+    "a jewelry product with a sun shaped motif or charm",
+    "a jewelry product with a tree of life motif or charm",
+    "a jewelry product with a bee shaped motif or charm",
+    "a jewelry product with a rabbit shaped motif or charm",
+)
+
+
+def normalize_figure_profiles(values: np.ndarray) -> np.ndarray:
+    """Turn prompt responses into color-independent figure fingerprints."""
+    centered = values - values.mean(axis=-1, keepdims=True)
+    norms = np.linalg.norm(centered, axis=-1, keepdims=True)
+    return centered / np.maximum(norms, 1e-8)
+
 
 def select_necklace_dino_queries(
     queries: np.ndarray,
@@ -189,6 +229,15 @@ class ProductSearchEngine:
         self.visual_motif_vectors = (
             motif_text_vectors.float().cpu().numpy().astype("float32")
         )
+        figure_tokens = self.tokenizer(list(FIGURE_PROMPTS)).to(self.device)
+        with torch.inference_mode():
+            figure_text_vectors = self.model.encode_text(figure_tokens)
+        figure_text_vectors = figure_text_vectors / figure_text_vectors.norm(
+            dim=-1, keepdim=True
+        )
+        self.figure_vectors = (
+            figure_text_vectors.float().cpu().numpy().astype("float32")
+        )
         self.index = faiss.read_index(str(INDEX_FILE))
         self.grayscale_index = (
             faiss.read_index(str(GRAYSCALE_INDEX_FILE))
@@ -237,6 +286,9 @@ class ProductSearchEngine:
             raise RuntimeError("DINOv2 index and code list have different lengths")
         self.category_indexes: dict[str, tuple[faiss.IndexFlatIP, np.ndarray]] = {}
         vectors = self.index.reconstruct_n(0, self.index.ntotal).astype("float32")
+        self.figure_profiles = normalize_figure_profiles(
+            vectors @ self.figure_vectors.T
+        ).astype("float32")
         category_rows: dict[str, list[int]] = {}
         for row, code in enumerate(self.codes):
             category = str(self.products.get(code, {}).get("kategori", ""))
@@ -337,6 +389,7 @@ class ProductSearchEngine:
         macro_necklace = False
         layered_necklace = False
         visual_motif = ""
+        query_figure_profiles: np.ndarray | None = None
         if image_path and category.upper() == "KOLYE":
             with Image.open(image_path) as opened:
                 width, height = ImageOps.exif_transpose(opened).size
@@ -346,6 +399,10 @@ class ProductSearchEngine:
             color_view_count = len(queries) // 2
             grayscale_queries = queries[color_view_count:]
             queries = queries[:color_view_count]
+            if len(queries):
+                query_figure_profiles = normalize_figure_profiles(
+                    queries @ self.figure_vectors.T
+                ).astype("float32")
             if category.upper() == "KOLYE" and len(queries):
                 necklace_type_scores = queries[0] @ self.necklace_type_vectors.T
                 layered_necklace = bool(
@@ -483,6 +540,18 @@ class ProductSearchEngine:
                 adjusted = text_only_score(description, product, score)
             else:
                 adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
+                if query_figure_profiles is not None:
+                    # Figure identity is evaluated before stones and color. A
+                    # multi-prompt fingerprint is safer than forcing one label:
+                    # even when "star" and "starfish" are close, the complete
+                    # response pattern remains characteristic of the model.
+                    figure_similarity = float(
+                        np.max(
+                            query_figure_profiles
+                            @ self.figure_profiles[int(item_id)]
+                        )
+                    )
+                    adjusted += 0.10 * max(0.0, figure_similarity)
                 if visual_motif and category.upper() == "KOLYE":
                     # Compare the catalog image itself with the detected pendant
                     # concept. This breaks ties between otherwise identical
