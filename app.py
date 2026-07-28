@@ -1,335 +1,116 @@
-from flask import Flask, render_template, request, send_file
-import os
-import sys
+from __future__ import annotations
 
-from PIL import Image
+import json
+import logging
+import tempfile
+from pathlib import Path
+
+from flask import Flask, abort, render_template, request, send_file
+from PIL import UnidentifiedImageError
 from pillow_heif import register_heif_opener
 
+from ai.search_engine import get_engine
+from ai.query_processor import normalize_uploaded_image
+from config import CATALOG_FILE, IMAGE_DIR, MAX_UPLOAD_BYTES, RESULT_COUNT
+
+
 register_heif_opener()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
-from image_processor import fotograf_iyilestir
+def load_categories() -> list[str]:
+    if not CATALOG_FILE.exists():
+        return []
+    with CATALOG_FILE.open("r", encoding="utf-8") as handle:
+        products = json.load(handle)
+    return sorted({p.get("kategori", "") for p in products if p.get("kategori")})
 
 
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
-# =========================
-# AI SİSTEMİ
-# =========================
+    @app.get("/")
+    def home():
+        return render_template("index.html", categories=load_categories())
 
-AI_KLASORU = os.path.join(
-    os.getcwd(),
-    "urun_bulucu"
-)
+    @app.post("/ara")
+    def search():
+        photo = request.files.get("foto")
+        description = request.form.get("aciklama", "").strip()
+        category = request.form.get("kategori", "").strip()
+        if (not photo or not photo.filename) and not description:
+            return render_template(
+                "index.html",
+                categories=load_categories(),
+                error="Fotoğraf yükleyin veya bir açıklama yazın.",
+            ), 400
 
-sys.path.append(
-    AI_KLASORU
-)
+        try:
+            with tempfile.TemporaryDirectory(prefix="klips-search-") as temp_dir:
+                image_path: Path | None = None
+                if photo and photo.filename:
+                    original = Path(temp_dir) / "query"
+                    photo.save(original)
+                    image_path = normalize_uploaded_image(
+                        original, Path(temp_dir) / "query.jpg"
+                    )
+                results = get_engine().search(
+                    image_path=image_path,
+                    description=description,
+                    category=category,
+                    limit=RESULT_COUNT,
+                )
+        except (UnidentifiedImageError, OSError):
+            return render_template(
+                "index.html", categories=load_categories(), error="Görsel okunamadı."
+            ), 400
+        except Exception:
+            app.logger.exception("Search failed")
+            return render_template(
+                "index.html",
+                categories=load_categories(),
+                error="Arama sırasında bir hata oluştu.",
+            ), 500
 
-
-from ai.search_engine import benzer_urun_bul
-
-
-
-
-
-# =========================
-# FLASK
-# =========================
-
-app = Flask(__name__)
-
-
-UPLOAD_FOLDER = "uploads"
-
-
-os.makedirs(
-    UPLOAD_FOLDER,
-    exist_ok=True
-)
-
-
-
-
-
-
-# =========================
-# ÜRÜN RESMİ
-# =========================
-
-@app.route("/resim/<kod>")
-def resim_goster(kod):
-
-    klasor = r"C:\Users\Can\Desktop\urun_bulucu\cache\images"
-
-
-    yol = os.path.join(
-        klasor,
-        kod + ".jpg"
-    )
-
-
-    if os.path.exists(yol):
-
-        return send_file(
-            yol
+        return render_template(
+            "index.html",
+            categories=load_categories(),
+            results=results,
+            selected_category=category,
+            description=description,
         )
 
+    @app.post("/kod")
+    def search_code():
+        code = request.form.get("kod", "").strip()
+        product = get_engine().find_by_code(code) if code else None
+        return render_template(
+            "index.html",
+            categories=load_categories(),
+            code_query=code,
+            results=[{**product, "puan": 1.0}] if product else [],
+            error=None if product else "Bu ürün kodu bulunamadı.",
+        ), 200 if product else 404
+
+    @app.get("/resim/<code>")
+    def product_image(code: str):
+        if not code or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for character in code):
+            abort(404)
+        path = IMAGE_DIR / f"{code}.jpg"
+        if not path.is_file():
+            abort(404)
+        return send_file(path, conditional=True, max_age=86400)
+
+    @app.get("/health")
+    def health():
+        return {"status": "ok", "catalog": CATALOG_FILE.exists(), "index": (CATALOG_FILE.parent / "faiss.index").exists()}
+
+    return app
+
+
+app = create_app()
 
-    return "Resim yok", 404
-
-
-
-
-
-
-
-# =========================
-# ANA SAYFA
-# =========================
-
-@app.route("/")
-def ana_sayfa():
-
-    return render_template(
-        "index.html"
-    )
-
-
-
-
-
-
-
-# =========================
-# ARAMA
-# =========================
-
-@app.route(
-    "/ara",
-    methods=["POST"]
-)
-def ara():
-
-
-    foto = request.files.get(
-        "foto"
-    )
-
-
-    if not foto or foto.filename == "":
-
-        return "Dosya seçilmedi"
-
-
-
-
-
-    # Gelen dosyayı orijinal haliyle kaydet
-
-    orjinal_yol = os.path.join(
-        UPLOAD_FOLDER,
-        foto.filename
-    )
-
-
-    foto.save(
-        orjinal_yol
-    )
-
-    print(
-        "KAYDEDİLEN DOSYA:",
-        orjinal_yol
-    )
-
-
-    print(
-        "GERCEK BOYUT:",
-        os.path.getsize(orjinal_yol)
-    )
-
-
-    print(
-        "GELEN DOSYA:",
-        foto.filename
-    )
-
-
-    print(
-        "DOSYA BOYUTU:",
-        os.path.getsize(orjinal_yol)
-    )
-
-
-    print(
-        "CONTENT TYPE:",
-        foto.content_type
-    )
-
-
-    print(
-        "UZANTI:",
-        os.path.splitext(foto.filename)[1]
-    )
-      
-    
-
-
-
-
-
-
-    # =========================
-    # FORMAT DÖNÜŞTÜRME
-    # =========================
-
-    try:
-
-
-        img = Image.open(
-            orjinal_yol
-        )
-
-
-        img = img.convert(
-            "RGB"
-        )
-
-
-
-        jpg_yol = os.path.join(
-            UPLOAD_FOLDER,
-            "arama.jpg"
-        )
-
-
-
-        img.save(
-            jpg_yol,
-            "JPEG",
-            quality=95
-        )
-
-
-
-        print(
-            "JPG dönüşümü başarılı"
-        )
-
-
-
-    except Exception as e:
-
-
-        print(
-            "FORMAT HATASI:",
-            e
-        )
-
-
-        return "Resim okunamadı"
-
-
-
-
-
-
-
-    # =========================
-    # FOTO İYİLEŞTİRME
-    # =========================
-
-
-    temiz_yol = os.path.join(
-        UPLOAD_FOLDER,
-        "arama_temiz.jpg"
-    )
-
-
-
-    try:
-
-
-        fotograf_iyilestir(
-            jpg_yol,
-            temiz_yol
-        )
-
-
-        print(
-            "Fotoğraf iyileştirildi"
-        )
-
-
-        kullanilacak_resim = temiz_yol
-
-
-
-    except Exception as e:
-
-
-        print(
-            "İyileştirme hatası:",
-            e
-        )
-
-
-        kullanilacak_resim = jpg_yol
-
-
-
-
-
-
-
-
-    # =========================
-    # AI ARAMA
-    # =========================
-
-
-    sonuc = benzer_urun_bul(
-
-        kullanilacak_resim,
-
-        adet=5
-
-    )
-
-
-    print(
-        sonuc
-    )
-
-
-
-
-    return render_template(
-
-        "index.html",
-
-        sonuc=sonuc
-
-    )
-
-
-
-
-
-
-
-# =========================
-# ÇALIŞTIR
-# =========================
 
 if __name__ == "__main__":
-
-
-    app.run(
-
-        host="0.0.0.0",
-
-        port=5001,
-
-        debug=False
-
-    )
+    app.run(host="127.0.0.1", port=5001, debug=False)

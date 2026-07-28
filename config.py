@@ -1,0 +1,20 @@
+from pathlib import Path
+
+
+BASE_DIR = Path(__file__).resolve().parent
+CACHE_DIR = BASE_DIR / "cache"
+IMAGE_DIR = CACHE_DIR / "images"
+CATALOG_FILE = CACHE_DIR / "catalog.json"
+INDEX_FILE = CACHE_DIR / "faiss.index"
+CODES_FILE = CACHE_DIR / "codes.json"
+UPLOAD_DIR = BASE_DIR / "uploads"
+
+MODEL_NAME = "ViT-B-32"
+PRETRAINED = "laion2b_s34b_b79k"
+RESULT_COUNT = 8
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+IMAGE_WEIGHT = 0.75
+TEXT_WEIGHT = 0.25
+SEARCH_CANDIDATES = 600
+CATEGORY_SEARCH_CANDIDATES = 5000
+FOCUSED_VIEW_WEIGHT = 0.98

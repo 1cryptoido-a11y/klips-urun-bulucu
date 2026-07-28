@@ -1,8 +1,13 @@
-uploads/
+uploads/*
+!uploads/.gitkeep
 __pycache__/
 *.pyc
 
-urun_bulucu/cache/
-*.pt
-
+cache/*
+!cache/.gitkeep
+!cache/README.md
+*.log
 .env
+.venv/
+venv/
+.pytest_cache/

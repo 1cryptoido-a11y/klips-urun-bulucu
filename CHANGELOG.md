@@ -1,0 +1,55 @@
+# Değişiklik geçmişi
+
+## 2026-07-28 – Birleşik üretim sürümü
+
+### Mimari
+
+- Eski Flask sitesi ile gelişmiş CLIP + FAISS projesi birleştirildi.
+- Uygulama `config.py`, `ai/`, `tools/`, `cache/`, `templates/`, `static/`,
+  `uploads/`, `tests/` yapısına ayrıldı.
+- Yeni `klips-v2.service` ve Nginx yapılandırması oluşturuldu.
+- Eski uygulama ve veriler silinmeden korundu; değişiklik öncesi yedekler alındı.
+
+### Katalog ve görseller
+
+- Yeni katalogda 17.394 ürün ve 17.149 doğrulanmış görsel hazırlandı.
+- Eski arşivde 56.649 benzersiz ürün kodu bulundu.
+- 8.994 ortak kod tek kopya bırakıldı.
+- Eski arşivde yalnız bulunan 47.655 görselin tamamı açılabilir JPEG olarak
+  doğrulandı ve yeni sisteme eklendi.
+- Birleşik katalog 65.049 ürüne, aranabilir görsel/vektör sayısı 64.804'e çıktı.
+- Görseli olmayan 245 ürün barkod araması için katalogda korundu.
+- Eski görseller depolama alanını çoğaltmamak için aynı dosya sisteminde hardlink
+  yöntemiyle yeni uygulamaya bağlandı.
+
+### Kategori ve açıklama
+
+- Kategori adları Türkçe standart biçime normalleştirildi.
+- Metadata bulunmayan arşiv ürünleri mevcut etiketli ürünlerin görsel komşularına
+  göre otomatik kategorilere ayrıldı.
+- Renk, detay ve stil özelliklerinden Türkçe otomatik açıklamalar oluşturuldu.
+- Kategori seçimi arayüze ve arama motoruna eklendi.
+
+### Arama
+
+- Fotoğraf, açıklama, birleşik fotoğraf+metin ve kesin barkod araması eklendi.
+- Her kategori için ayrı bellek içi FAISS indeksi oluşturuldu.
+- Otomatik ürün odak kırpması ve çoklu-görünüm puan birleştirmesi eklendi.
+- Aday havuzu büyütülerek ikinci aşama yeniden sıralama yapıldı.
+- Mağaza benzeri testte ilk sıra sonucu 8/36'dan 32/36'ya yükseldi.
+
+### Mobil kamera ve ekran fotoğrafı
+
+- Telefon JPEG/HEIC EXIF yön bilgisi normalleştirildi.
+- OpenCV ile ekran dörtgeni algılama ve perspektif düzeltme eklendi.
+- Ekran çerçevesi kırpma ve moiré azaltma eklendi.
+- Zor ekran testinde ilk sıra 6/30'dan 23/30'a, ilk 5 sonucu 10/30'dan
+  27/30'a yükseldi.
+- Gerçek `120346` barkodlu ekran/kamera örneği birinci sırada doğrulandı.
+
+### Test ve güvenlik
+
+- Kategori normalizasyonu, ürün içe aktarma, odak kırpma ve mobil EXIF yönü için
+  otomatik testler eklendi.
+- Katalog, görseller, FAISS indeksi, yüklemeler, `.env`, parolalar ve tokenlar
+  GitHub dışında bırakıldı.

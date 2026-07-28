@@ -1,526 +1,74 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
-
 <head>
-
-<meta charset="UTF-8">
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>
-KLİPS Ürün Arama
-</title>
-
-
-<link rel="stylesheet" href="/static/style.css">
-
-
-<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Klips Concept Ürün Bulucu</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='description.css') }}">
 </head>
-
-
-
 <body>
-
-
-<div class="container">
-
-
-
-<img
-src="/static/klips_logo.png"
-class="logo"
->
-
-
-
-
-<p class="slogan">
-Seninle Başlayan Tasarım
-</p>
-
-
-
-
-
-<form
-action="/ara"
-method="POST"
-enctype="multipart/form-data"
-id="form"
->
-
-
-
-<div class="secimler">
-
-
-
-<<label class="buton" for="kamera">
-
-📷 Kamera ile Çek
-
-</label>
-
-
-<input
-type="file"
-id="kamera"
-name="foto"
-accept="image/*"
-capture="environment"
-hidden
->
-
-
-
-
-<label class="buton" for="galeri">
-
-🖼️ Galeriden Seç
-
-</label>
-
-
-<input
-type="file"
-id="galeri"
-accept="image/*"
-hidden
->
-
-
-
-
-
-
-
-
-
-</div>
-
-
-
-
-
-
-
-<div id="preview">
-
-
-<img
-id="onizleme"
-class="onizleme"
-style="display:none;"
->
-
-
-<p id="bilgi"></p>
-
-
-</div>
-
-
-
-
-
-
-<button type="submit">
-
-🔍 Ürünü Bul
-
-</button>
-
-
-
-</form>
-
-
-
-
-
-
-
-{% if sonuc %}
-
-
-
-<h2>
-✨ Benzer Ürünler
-</h2>
-
-
-
-
-{% for u in sonuc %}
-
-
-
-
-<div class="urun">
-
-
-
-{% if loop.first %}
-
-<div>
-🏆 En iyi eşleşme
-</div>
-
-{% endif %}
-
-
-
-
-
-<h3>
-
-Ürün Kodu:
-{{u["kod"]}}
-
-</h3>
-
-
-
-
-
-<p>
-
-AI Benzerlik:
-
-%{{ (u["puan"]*100)|round(2) }}
-
-</p>
-
-
-
-
-
-
-<div class="benzer-bar">
-
-
-<div
-class="benzer-dolum"
-style="
-width:{{u["puan"]*100}}%
-">
-
-</div>
-
-
-</div>
-
-
-
-
-
-
-<img
-src="/resim/{{u['kod']}}"
->
-
-
-
-</div>
-
-
-
-
-{% endfor %}
-
-
-
-{% endif %}
-
-
-
-
-
-</div>
-
-
-
-
-
-
-
-
-
-<script>
-
-
-const kamera =
-document.getElementById("kamera");
-
-
-const galeri =
-document.getElementById("galeri");
-
-
-const preview =
-document.getElementById("onizleme");
-
-
-const bilgi =
-document.getElementById("bilgi");
-
-
-
-
-
-
-
-async function onizle(dosya){
-
-
-
-if(!dosya){
-
-return;
-
-}
-
-
-
-
-let gosterilecek = dosya;
-
-
-
-
-console.log(
-"SEÇİLEN:",
-dosya.name
-);
-
-
-console.log(
-"FORMAT:",
-dosya.type
-);
-
-
-
-
-
-
-if(
-
-dosya.name.toLowerCase().endsWith(".heic")
-
-||
-
-dosya.type === "image/heic"
-
-){
-
-
-
-try{
-
-
-bilgi.innerHTML =
-"📱 HEIC hazırlanıyor...";
-
-
-
-
-
-let sonuc = await heic2any({
-
-
-blob: dosya,
-
-
-toType:"image/jpeg",
-
-
-quality:0.9
-
-
-});
-
-
-
-
-
-if(Array.isArray(sonuc)){
-
-
-gosterilecek = sonuc[0];
-
-
-}
-
-else{
-
-
-gosterilecek = sonuc;
-
-
-}
-
-
-
-
-
-}
-
-catch(e){
-
-
-console.log(
-"HEIC HATA:",
-e
-);
-
-
-bilgi.innerHTML =
-"❌ HEIC önizleme açılamadı";
-
-
-return;
-
-
-}
-
-
-
-}
-
-
-
-
-
-
-
-const url =
-URL.createObjectURL(
-gosterilecek
-);
-
-
-
-preview.src = url;
-
-
-preview.style.display="block";
-
-
-
-
-
-bilgi.innerHTML =
-`
-${dosya.name}<br>
-${(dosya.size/1024/1024).toFixed(2)} MB
-`;
-
-
-
-}
-
-
-
-
-
-
-
-
-
-
-kamera.addEventListener(
-"change",
-function(){
-
-onizle(
-this.files[0]
-);
-
-}
-);
-
-
-
-
-
-
-
-
-galeri.addEventListener(
-"change",
-function(){
-
-    if(this.files[0]){
-
-        kamera.files = this.files;
-
-        onizle(
-            this.files[0]
-        );
-
-    }
-
-}
-);
-
-
-
-
-
-
-
-
-
-document
-.getElementById("form")
-.addEventListener(
-"submit",
-function(e){
-
-
-
-const secilen =
-kamera.files[0] ||
-galeri.files[0];
-
-
-
-
-if(!secilen){
-
-
-alert(
-"Lütfen önce fotoğraf seç"
-);
-
-
-e.preventDefault();
-
-
-}
-
-
-
-
-}
-
-);
-
-
-
-
-
-</script>
-
-
-
-
-
-
+  <main class="page-shell">
+    <header class="hero">
+      <img class="logo" src="{{ url_for('static', filename='klips_logo.png') }}" alt="Klips Concept">
+      <p>Fotoğraf, açıklama veya ürün koduyla saniyeler içinde bulun.</p>
+    </header>
+
+    <section class="search-grid">
+      <form class="panel primary" action="{{ url_for('search') }}" method="post" enctype="multipart/form-data">
+        <h1>Akıllı ürün arama</h1>
+        <label for="kategori">Kategori</label>
+        <select id="kategori" name="kategori">
+          <option value="">Tüm kategoriler</option>
+          {% for category in categories %}
+          <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="foto">Ürün fotoğrafı</label>
+        <input id="foto" name="foto" type="file" accept="image/*,.heic,.heif">
+
+        <label for="aciklama">Açıklama <span>(isteğe bağlı)</span></label>
+        <textarea id="aciklama" name="aciklama" rows="3" placeholder="Örn. altın renkli, taşlı kalp kolye">{{ description or '' }}</textarea>
+        <button type="submit">Benzer ürünleri bul</button>
+      </form>
+
+      <form class="panel code-search" action="{{ url_for('search_code') }}" method="post">
+        <h2>Ürün koduyla bul</h2>
+        <p>Barkodu veya ürün kodunu eksiksiz yazın.</p>
+        <label for="kod">Ürün kodu</label>
+        <input id="kod" name="kod" value="{{ code_query or '' }}" placeholder="Örn. 001559" autocomplete="off">
+        <button type="submit">Ürünü getir</button>
+      </form>
+    </section>
+
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+
+    {% if results is defined and results %}
+    <section class="results">
+      <div class="results-heading">
+        <h2>Bulunan ürünler</h2>
+        <span>{{ results|length }} sonuç</span>
+      </div>
+      <div class="product-grid">
+        {% for product in results %}
+        <article class="product-card">
+          <div class="image-wrap">
+            <img src="{{ url_for('product_image', code=product.kod) }}" alt="{{ product.urun_adi or product.kod }}" loading="lazy">
+            {% if loop.first %}<span class="best">En iyi eşleşme</span>{% endif %}
+          </div>
+          <div class="product-info">
+            <span class="category">{{ product.kategori }}</span>
+            <h3>{{ product.urun_adi or 'Klips Concept ürünü' }}</h3>
+            {% if product.aciklama %}<p class="description">{{ product.aciklama }}</p>{% endif %}
+            <p class="code">Kod: <strong>{{ product.kod }}</strong></p>
+            {% if product.puan is defined %}<p class="score">Benzerlik: %{{ (product.puan * 100)|round(1) }}</p>{% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </main>
 </body>
-
 </html>
