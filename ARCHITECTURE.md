@@ -64,3 +64,15 @@ oluşturulur; diskte ayrı kategori indeksleri tutulmaz.
 - Gerçek kullanıcı fotoğraflarından etiketli bir regresyon seti büyütülmelidir.
 - 64 bin ürünün tamamını yeniden indekslemek CPU sunucuda uzun sürebilir; GPU
   makinede indeks üretip atomik biçimde sunucuya aktarmak tercih edilir.
+
+## Ayrıntılı açıklama hattı
+
+Bu işlem web isteği sırasında yapılmaz. GPU bulunan bakım makinesinde Florence-2
+ile çevrimdışı toplu tarama yapılır. Araç her gruptan sonra JSONL checkpoint
+yazar ve kesinti sonrasında kalan barkodlardan devam eder. İngilizce görsel
+caption doğrudan kullanıcıya gösterilmez; güvenli sözlük ayrıştırıcısı yalnızca
+ürünle ilişkili cümlelerden renk, motif, malzeme ve form alanlarını çıkarır.
+Doğrulanmış katalog kategorisi model tahminiyle değiştirilmez.
+
+Üretilen `arama_etiketleri`, açıklamayla yapılan CLIP aramasında küçük ve sınırlı
+bir kelime-eşleşme desteği olarak kullanılır. Ana görsel benzerlik puanı korunur.

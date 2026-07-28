@@ -15,6 +15,7 @@ Canlı adres: <https://takisorgulama.tr/>
 - Görseli eksik fakat barkodla bulunabilen 245 ürün
 - Barkod bazında tekilleştirilmiş eski ve yeni katalog birleşimi
 - Ürünlere atanmış standart kategori ve otomatik Türkçe görsel açıklamaları
+- Florence-2 ile nesne/motif, vurgu rengi, taş/malzeme ve form analizi
 
 Büyük katalog, görseller ve FAISS indeksi GitHub'a dahil değildir. Bunlar canlı
 sunucuda `cache/` altında tutulur. Bkz. `cache/README.md` ve `OPERATIONS.md`.
@@ -28,6 +29,7 @@ sunucuda `cache/` altında tutulur. Bkz. `cache/README.md` ve `OPERATIONS.md`.
 - Fotoğraf ve açıklamayı ağırlıklı birleştiren arama
 - Barkod/ürün koduyla kesin sonuç bulma
 - Ürün kartında görsel, barkod, kategori, ürün adı, otomatik açıklama ve benzerlik
+- Balık, yonca, kalp, kelebek, denizyıldızı gibi motifleri açıklama/arama etiketi yapma
 - Mobil uyumlu web arayüzü
 - Telefon kamerası EXIF yön düzeltmesi
 - Ekrandan telefonla çekilen görseller için özel işleme:
@@ -123,6 +125,8 @@ gerçek fotoğraf ve doğru barkod birlikte saklanarak test setine eklenmelidir.
 | `ai/build_index.py` | Ürün görsellerinden FAISS indeksi oluşturma |
 | `tools/import_catalog.py` | Rapor verisini standart kataloğa dönüştürme |
 | `tools/generate_descriptions.py` | Embeddinglerden görsel özellik/açıklama üretme |
+| `tools/caption_catalog_florence.py` | GPU ile görselleri nesne/motif açısından tarama |
+| `tools/apply_detailed_captions.py` | Captionları güvenli Türkçe alanlara dönüştürme |
 | `tools/merge_old_archive.py` | Doğrulanmış eski arşivi kod bazında birleştirme |
 | `templates/`, `static/` | Web arayüzü |
 | `deploy/` | Nginx ve systemd örnekleri |

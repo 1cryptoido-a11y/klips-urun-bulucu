@@ -1,0 +1,6 @@
+# Offline/GPU catalog enrichment tools only; not required by the web runtime.
+-r requirements.txt
+transformers==4.49.0
+accelerate>=1.10,<2
+einops>=0.8,<1
+timm>=1,<2

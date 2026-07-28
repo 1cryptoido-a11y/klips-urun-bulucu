@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,35 @@ from config import (
     TEXT_WEIGHT,
 )
 from ai.query_processor import prepare_query_views
+
+
+STOP_WORDS = {
+    "bir", "ve", "ile", "olan", "gibi", "ürün", "urün", "tonlu", "renkli",
+    "detaylı", "detayli", "figürlü", "figurlu", "model", "tasarım",
+}
+
+
+def search_terms(value: str) -> set[str]:
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return {
+        token for token in re.findall(r"[a-zçğıöşü0-9]+", normalized)
+        if len(token) > 1 and token not in STOP_WORDS
+    }
+
+
+def lexical_score(description: str, product: dict[str, Any]) -> float:
+    query = search_terms(description)
+    if not query:
+        return 0.0
+    metadata = " ".join(
+        [
+            str(product.get("kategori", "")),
+            str(product.get("aciklama", "")),
+            " ".join(str(item) for item in product.get("arama_etiketleri", [])),
+        ]
+    )
+    overlap = query & search_terms(metadata)
+    return len(overlap) / len(query)
 
 
 class ProductSearchEngine:
@@ -115,13 +146,18 @@ class ProductSearchEngine:
                 weighted = float(score) * weight
                 fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
-        results: list[dict[str, Any]] = []
-        for item_id, score in sorted(fused.items(), key=lambda item: item[1], reverse=True):
+        ranked: list[tuple[float, dict[str, Any]]] = []
+        for item_id, score in fused.items():
             code = self.codes[item_id]
             product = self.products.get(code)
             if not product or (category and product.get("kategori") != category):
                 continue
-            results.append({**product, "puan": float(score)})
+            adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
+            ranked.append((adjusted, product))
+
+        results: list[dict[str, Any]] = []
+        for score, product in sorted(ranked, key=lambda item: item[0], reverse=True):
+            results.append({**product, "puan": min(float(score), 1.0)})
             if len(results) >= limit:
                 break
         return results

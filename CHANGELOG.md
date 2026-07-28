@@ -53,3 +53,16 @@
   otomatik testler eklendi.
 - Katalog, görseller, FAISS indeksi, yüklemeler, `.env`, parolalar ve tokenlar
   GitHub dışında bırakıldı.
+
+### Ayrıntılı nesne ve motif açıklamaları
+
+- Florence-2 tabanlı, GPU hızlandırmalı ve checkpoint destekli toplu görsel
+  açıklama hattı eklendi.
+- Balık, yonca, kalp, kelebek, çiçek, denizyıldızı, nazar gözü ve benzeri motifler
+  yapılandırılmış arama etiketlerine dönüştürüldü.
+- Metal rengi ile siyah/yeşil/mavi gibi vurgu renkleri ayrıldı.
+- İnci, boncuk, mine, taş ve ürün formu ayrıntıları eklendi.
+- Kart, logo ve arka plan renklerinin ürün özelliği sanılmasını azaltan cümle
+  filtreleme uygulandı.
+- Açıklama sorgularında yapılandırılmış etiketlere düşük ağırlıklı kelime
+  eşleşme reranking desteği eklendi.
