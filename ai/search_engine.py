@@ -55,6 +55,17 @@ def select_necklace_dino_queries(
     return queries[:1]
 
 
+def necklace_identity_view_index(
+    view_count: int, *, preserve_silhouette: bool = False
+) -> int:
+    """Return the crop that preserves a small pendant's complete silhouette."""
+    # query_processor appends five necklace-specific views. The third of those
+    # is a moderately tight bottom-centre crop. It keeps the whole pendant and
+    # its bail, whereas the final crop can turn tiny motifs into an ambiguous
+    # patch of bright stones.
+    return max(0, view_count - (3 if preserve_silhouette else 1))
+
+
 def count_blue_motif_centers(image: Image.Image) -> int:
     """Count meaningful blue/cyan motif centers, ignoring their exact shade."""
     rgb = np.asarray(image.convert("RGB").resize((512, 512)), dtype="float32")
@@ -149,6 +160,7 @@ class ProductSearchEngine:
             category_text_vectors.float().cpu().numpy().astype("float32")
         )
         self.visual_motif_labels = (
+            "anahtar",
             "nazar gözü",
             "yonca",
             "kalp",
@@ -159,6 +171,7 @@ class ProductSearchEngine:
         )
         motif_prompts = self.tokenizer(
             [
+                "a jewelry necklace with a key shaped pendant",
                 "a jewelry product with a row of evil eye beads",
                 "a jewelry product with a clover charm",
                 "a jewelry product with a heart charm",
@@ -359,10 +372,17 @@ class ProductSearchEngine:
         fused: dict[int, float] = {}
         for view, (view_scores, view_ids) in enumerate(zip(scores, ids)):
             weight = 1.0 if view == 0 else FOCUSED_VIEW_WEIGHT
-            if category.upper() == "KOLYE" and view == len(scores) - 1:
-                # The final necklace view is a deliberately tight pendant crop.
-                # On a full display-card photo it carries more product identity
-                # than the card, logo, hand, and long chain in the original.
+            if (
+                category.upper() == "KOLYE"
+                and view == necklace_identity_view_index(
+                    len(scores),
+                    preserve_silhouette=bool(visual_motif)
+                    and visual_motif != "nazar gözü",
+                )
+            ):
+                # Prefer the crop that retains the pendant's complete silhouette.
+                # The narrowest crop over-rewards generic sparkle and can rank a
+                # flower or cluster above the same key/heart/planet model.
                 weight = 1.10
             for item_id, score in zip(view_ids, view_scores):
                 if item_id < 0:
@@ -463,6 +483,17 @@ class ProductSearchEngine:
                 adjusted = text_only_score(description, product, score)
             else:
                 adjusted = score + (0.045 * lexical_score(description, product) if description else 0.0)
+                if visual_motif and category.upper() == "KOLYE":
+                    # Compare the catalog image itself with the detected pendant
+                    # concept. This breaks ties between otherwise identical
+                    # white-card/thin-chain compositions using the actual model
+                    # (key, heart, star, etc.) instead of generic sparkle.
+                    motif_index = self.visual_motif_labels.index(visual_motif)
+                    reference_vector = self.index.reconstruct(int(item_id))
+                    motif_alignment = float(
+                        reference_vector @ self.visual_motif_vectors[motif_index]
+                    )
+                    adjusted += 0.20 * max(0.0, motif_alignment - 0.20)
                 if visual_motif and category.upper() in {
                     "BİLEKLİK",
                     "HALHAL",

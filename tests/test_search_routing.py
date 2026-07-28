@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw
 
 from ai.search_engine import (
     count_blue_motif_centers,
+    necklace_identity_view_index,
     select_necklace_dino_queries,
     structural_weights,
 )
@@ -31,6 +32,15 @@ class NecklaceDinoRoutingTests(unittest.TestCase):
             self.queries, macro_necklace=False, layered_necklace=False
         )
         self.assertIsNone(selected)
+
+    def test_necklace_identity_uses_complete_pendant_crop(self) -> None:
+        self.assertEqual(
+            necklace_identity_view_index(7, preserve_silhouette=True), 4
+        )
+        self.assertEqual(
+            necklace_identity_view_index(8, preserve_silhouette=True), 5
+        )
+        self.assertEqual(necklace_identity_view_index(7), 6)
 
     def test_blue_motif_counter_ignores_shade_but_keeps_count(self) -> None:
         image = Image.new("RGB", (512, 512), "white")
