@@ -104,6 +104,24 @@ class ProductSearchEngine:
         self.necklace_type_vectors = (
             necklace_text_vectors.float().cpu().numpy().astype("float32")
         )
+        self.visual_category_labels = ("KOLYE", "KÜPE", "YÜZÜK", "BİLEKLİK", "TOKA")
+        category_prompts = self.tokenizer(
+            [
+                "a necklace jewelry product",
+                "a pair of earrings jewelry product",
+                "a ring jewelry product",
+                "a bracelet jewelry product",
+                "a hair clip accessory",
+            ]
+        ).to(self.device)
+        with torch.inference_mode():
+            category_text_vectors = self.model.encode_text(category_prompts)
+        category_text_vectors = category_text_vectors / category_text_vectors.norm(
+            dim=-1, keepdim=True
+        )
+        self.visual_category_vectors = (
+            category_text_vectors.float().cpu().numpy().astype("float32")
+        )
         self.index = faiss.read_index(str(INDEX_FILE))
         self.grayscale_index = (
             faiss.read_index(str(GRAYSCALE_INDEX_FILE))
@@ -176,6 +194,17 @@ class ProductSearchEngine:
             vector = self.model.encode_text(tokens)
         return vector / vector.norm(dim=-1, keepdim=True)
 
+    def _infer_visual_category(self, image_path: str | Path) -> str:
+        """Choose a main product route when the user leaves category empty."""
+        with Image.open(image_path) as opened:
+            image = ImageOps.exif_transpose(opened).convert("RGB")
+        tensor = self.preprocess(image).unsqueeze(0).to(self.device)
+        with torch.inference_mode():
+            vector = self.model.encode_image(tensor)
+        vector = vector / vector.norm(dim=-1, keepdim=True)
+        scores = vector.float().cpu().numpy()[0] @ self.visual_category_vectors.T
+        return self.visual_category_labels[int(np.argmax(scores))]
+
     def _encode_dino_images(
         self, image_path: str | Path, category: str
     ) -> np.ndarray | None:
@@ -216,6 +245,8 @@ class ProductSearchEngine:
         category: str = "",
         limit: int = 8,
     ) -> list[dict[str, Any]]:
+        if image_path and not category:
+            category = self._infer_visual_category(image_path)
         queries = self._query_vectors(image_path, description.strip(), category)
         macro_necklace = False
         layered_necklace = False
