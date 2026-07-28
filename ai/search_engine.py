@@ -198,11 +198,22 @@ class ProductSearchEngine:
         """Choose a main product route when the user leaves category empty."""
         with Image.open(image_path) as opened:
             image = ImageOps.exif_transpose(opened).convert("RGB")
-        tensor = self.preprocess(image).unsqueeze(0).to(self.device)
+        width, height = image.size
+        # Display cards and their logos can dominate a thin bracelet. Include
+        # product-heavy lower bands and retain the strongest category evidence.
+        views = [
+            image,
+            image.crop((0, int(height * 0.40), width, height)),
+            image.crop((0, int(height * 0.55), width, height)),
+        ]
+        tensor = torch.stack([self.preprocess(view) for view in views]).to(self.device)
         with torch.inference_mode():
-            vector = self.model.encode_image(tensor)
-        vector = vector / vector.norm(dim=-1, keepdim=True)
-        scores = vector.float().cpu().numpy()[0] @ self.visual_category_vectors.T
+            vectors = self.model.encode_image(tensor)
+        vectors = vectors / vectors.norm(dim=-1, keepdim=True)
+        view_scores = (
+            vectors.float().cpu().numpy() @ self.visual_category_vectors.T
+        )
+        scores = view_scores.max(axis=0)
         return self.visual_category_labels[int(np.argmax(scores))]
 
     def _encode_dino_images(
