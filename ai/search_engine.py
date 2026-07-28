@@ -12,12 +12,14 @@ import numpy as np
 import open_clip
 import torch
 from PIL import Image, ImageOps
+from scipy import ndimage
 
 from config import (
     CATALOG_FILE,
     CATEGORY_SEARCH_CANDIDATES,
     CODES_FILE,
     DINO_INDEX_FILE,
+    IMAGE_DIR,
     IMAGE_WEIGHT,
     INDEX_FILE,
     MODEL_NAME,
@@ -51,6 +53,18 @@ def select_necklace_dino_queries(
     if len(queries) >= 6:
         return queries[4:6]
     return queries[:1]
+
+
+def count_blue_motif_centers(image: Image.Image) -> int:
+    """Count meaningful blue/cyan motif centers, ignoring their exact shade."""
+    rgb = np.asarray(image.convert("RGB").resize((512, 512)), dtype="float32")
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    mask = (blue > red * 1.08) & (blue > green * 1.03) & ((blue - red) > 10) & (blue > 60)
+    labels, count = ndimage.label(mask)
+    if not count:
+        return 0
+    areas = np.bincount(labels.ravel())[1:]
+    return int(np.count_nonzero((areas >= 60) & (areas <= 1500)))
 
 
 def search_terms(value: str) -> set[str]:
@@ -444,8 +458,33 @@ class ProductSearchEngine:
                         adjusted += 0.10
             ranked.append((adjusted, product))
 
+        ordered = sorted(ranked, key=lambda item: item[0], reverse=True)
+        if image_path and visual_motif == "nazar gözü":
+            with Image.open(image_path) as opened:
+                query_motif_count = count_blue_motif_centers(
+                    ImageOps.exif_transpose(opened)
+                )
+            if query_motif_count >= 3:
+                geometry_ranked: list[tuple[float, dict[str, Any]]] = []
+                for score, product in ordered[:100]:
+                    reference_path = IMAGE_DIR / f"{product['kod']}.jpg"
+                    reference_count = 0
+                    if reference_path.is_file():
+                        with Image.open(reference_path) as reference:
+                            reference_count = count_blue_motif_centers(reference)
+                    difference = abs(query_motif_count - reference_count)
+                    bonus = 0.0
+                    if reference_count >= 3:
+                        bonus = max(0.0, 0.18 - (0.04 * difference))
+                    geometry_ranked.append((score + bonus, product))
+                ordered = sorted(
+                    geometry_ranked + ordered[100:],
+                    key=lambda item: item[0],
+                    reverse=True,
+                )
+
         results: list[dict[str, Any]] = []
-        for score, product in sorted(ranked, key=lambda item: item[0], reverse=True):
+        for score, product in ordered:
             results.append({**product, "puan": min(float(score), 1.0)})
             if len(results) >= limit:
                 break

@@ -1,8 +1,9 @@
 import unittest
 
 import numpy as np
+from PIL import Image, ImageDraw
 
-from ai.search_engine import select_necklace_dino_queries
+from ai.search_engine import count_blue_motif_centers, select_necklace_dino_queries
 
 
 class NecklaceDinoRoutingTests(unittest.TestCase):
@@ -26,6 +27,15 @@ class NecklaceDinoRoutingTests(unittest.TestCase):
             self.queries, macro_necklace=False, layered_necklace=False
         )
         self.assertIsNone(selected)
+
+    def test_blue_motif_counter_ignores_shade_but_keeps_count(self) -> None:
+        image = Image.new("RGB", (512, 512), "white")
+        draw = ImageDraw.Draw(image)
+        for index in range(10):
+            center_x = 40 + (index * 47)
+            color = (20, 100 + index, 180 + index * 3)
+            draw.ellipse((center_x - 9, 245, center_x + 9, 263), fill=color)
+        self.assertEqual(count_blue_motif_centers(image), 10)
 
 
 if __name__ == "__main__":
