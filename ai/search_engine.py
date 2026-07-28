@@ -21,6 +21,7 @@ from config import (
     INDEX_FILE,
     MODEL_NAME,
     FOCUSED_VIEW_WEIGHT,
+    GRAYSCALE_INDEX_FILE,
     PRETRAINED,
     SEARCH_CANDIDATES,
     TEXT_WEIGHT,
@@ -72,6 +73,11 @@ class ProductSearchEngine:
         self.tokenizer = open_clip.get_tokenizer(MODEL_NAME)
         self.model = self.model.to(self.device).eval()
         self.index = faiss.read_index(str(INDEX_FILE))
+        self.grayscale_index = (
+            faiss.read_index(str(GRAYSCALE_INDEX_FILE))
+            if GRAYSCALE_INDEX_FILE.exists()
+            else None
+        )
         with CODES_FILE.open("r", encoding="utf-8") as handle:
             self.codes: list[str] = json.load(handle)
         with CATALOG_FILE.open("r", encoding="utf-8") as handle:
@@ -81,6 +87,8 @@ class ProductSearchEngine:
         }
         if self.index.ntotal != len(self.codes):
             raise RuntimeError("FAISS index and code list have different lengths")
+        if self.grayscale_index is not None and self.grayscale_index.ntotal != len(self.codes):
+            raise RuntimeError("Grayscale index and code list have different lengths")
         self.category_indexes: dict[str, tuple[faiss.IndexFlatIP, np.ndarray]] = {}
         vectors = self.index.reconstruct_n(0, self.index.ntotal).astype("float32")
         category_rows: dict[str, list[int]] = {}
@@ -133,6 +141,11 @@ class ProductSearchEngine:
         limit: int = 8,
     ) -> list[dict[str, Any]]:
         queries = self._query_vectors(image_path, description.strip(), category)
+        grayscale_queries: np.ndarray | None = None
+        if image_path:
+            color_view_count = len(queries) // 2
+            grayscale_queries = queries[color_view_count:]
+            queries = queries[:color_view_count]
         search_index = self.index
         row_ids: np.ndarray | None = None
         if category and category in self.category_indexes:
@@ -158,6 +171,21 @@ class ProductSearchEngine:
                     item_id = int(row_ids[item_id])
                 weighted = float(score) * weight
                 fused[item_id] = max(fused.get(item_id, -1.0), weighted)
+
+        if grayscale_queries is not None and self.grayscale_index is not None:
+            grayscale_requested = min(
+                self.grayscale_index.ntotal,
+                max(SEARCH_CANDIDATES, CATEGORY_SEARCH_CANDIDATES * 3 if category else 0),
+            )
+            grayscale_scores, grayscale_ids = self.grayscale_index.search(
+                grayscale_queries, grayscale_requested
+            )
+            for view_scores, view_ids in zip(grayscale_scores, grayscale_ids):
+                for item_id, score in zip(view_ids, view_scores):
+                    if item_id < 0:
+                        continue
+                    weighted = float(score) * FOCUSED_VIEW_WEIGHT
+                    fused[item_id] = max(fused.get(item_id, -1.0), weighted)
 
         ranked: list[tuple[float, dict[str, Any]]] = []
         candidate_ids = set(fused)

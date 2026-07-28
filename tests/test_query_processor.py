@@ -36,7 +36,7 @@ class QueryProcessorTests(unittest.TestCase):
             with patch("ai.query_processor._background_mask", return_value=mask):
                 views = prepare_query_views(path)
 
-        self.assertEqual(len(views), 3)
+        self.assertEqual(len(views), 6)
         self.assertLess(views[1].width, views[0].width)
         self.assertLess(views[1].height, views[0].height)
         self.assertEqual(views[2].size, (1024, 1024))
@@ -49,12 +49,15 @@ class QueryProcessorTests(unittest.TestCase):
             with patch("ai.query_processor._background_mask", return_value=None):
                 views = prepare_query_views(path, "KOLYE")
 
-        self.assertEqual(len(views), 6)
-        self.assertEqual(views[-5].size, (600, 590))
-        self.assertEqual(views[-4].size, (600, 590))
-        self.assertEqual(views[-3].size, (432, 440))
-        self.assertEqual(views[-2].size, (336, 300))
-        self.assertEqual(views[-1].size, (240, 350))
+        self.assertEqual(len(views), 12)
+        self.assertEqual(views[1].size, (600, 590))
+        self.assertEqual(views[2].size, (600, 590))
+        self.assertEqual(views[3].size, (432, 440))
+        self.assertEqual(views[4].size, (336, 300))
+        self.assertEqual(views[5].size, (240, 350))
+        red, green, blue = views[-1].getpixel((10, 10))
+        self.assertEqual(red, green)
+        self.assertEqual(green, blue)
 
     def test_bracelet_category_adds_sides_and_rotated_view(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -63,11 +66,13 @@ class QueryProcessorTests(unittest.TestCase):
             with patch("ai.query_processor._background_mask", return_value=None):
                 views = prepare_query_views(path, "BİLEKLİK")
 
-        self.assertEqual(len(views), 5)
-        self.assertEqual(views[-4].size, (276, 1000))
-        self.assertEqual(views[-3].size, (276, 1000))
-        self.assertEqual(views[-2].size, (1000, 276))
-        self.assertEqual(views[-1].size, (1000, 276))
+        self.assertEqual(len(views), 14)
+        self.assertEqual(views[1].size, (276, 1000))
+        self.assertEqual(views[2].size, (276, 1000))
+        self.assertEqual(views[3].size, (1000, 276))
+        self.assertEqual(views[4].size, (1000, 276))
+        self.assertEqual(views[5].size, (600, 420))
+        self.assertEqual(views[6].size, (600, 400))
 
 
 if __name__ == "__main__":

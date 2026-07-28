@@ -49,7 +49,9 @@ def create_app() -> Flask:
 
     @app.post("/ara")
     def search():
-        photo = request.files.get("foto")
+        camera_photo = request.files.get("kamera")
+        gallery_photo = request.files.get("foto")
+        photo = camera_photo if camera_photo and camera_photo.filename else gallery_photo
         description = request.form.get("aciklama", "").strip()
         category = request.form.get("kategori", "").strip()
         if (not photo or not photo.filename) and not description:

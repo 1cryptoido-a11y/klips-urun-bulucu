@@ -6,6 +6,7 @@ CACHE_DIR = BASE_DIR / "cache"
 IMAGE_DIR = CACHE_DIR / "images"
 CATALOG_FILE = CACHE_DIR / "catalog.json"
 INDEX_FILE = CACHE_DIR / "faiss.index"
+GRAYSCALE_INDEX_FILE = CACHE_DIR / "faiss_grayscale.index"
 CODES_FILE = CACHE_DIR / "codes.json"
 UPLOAD_DIR = BASE_DIR / "uploads"
 

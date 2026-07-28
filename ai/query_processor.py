@@ -252,12 +252,20 @@ def _category_views(image: Image.Image, category: str) -> list[Image.Image]:
             image.crop((0, 0, edge_width, image.height)),
             image.crop((image.width - edge_width, 0, image.width, image.height)),
         ]
-        return [*sides, *(side.rotate(90, expand=True) for side in sides)]
+        horizontal_bands = [
+            image.crop((0, round(image.height * 0.40), image.width, round(image.height * 0.82))),
+            image.crop((0, round(image.height * 0.55), image.width, round(image.height * 0.95))),
+        ]
+        return [
+            *sides,
+            *(side.rotate(90, expand=True) for side in sides),
+            *horizontal_bands,
+        ]
     return []
 
 
 def prepare_query_views(path: str | Path, category: str = "") -> list[Image.Image]:
-    """Return robust original, isolated, and category-aware product views."""
+    """Return robust shape, isolation, and category-aware product views."""
     with Image.open(path) as source:
         original = ImageOps.exif_transpose(source).convert("RGB")
     original.thumbnail((MAX_QUERY_SIZE, MAX_QUERY_SIZE), Image.Resampling.LANCZOS)
@@ -276,4 +284,9 @@ def prepare_query_views(path: str | Path, category: str = "") -> list[Image.Imag
         elif screen is not None:
             views.append(screen)
     views.extend(_category_views(focus_source, category))
+    color_views = list(views)
+    views.extend(
+        ImageOps.autocontrast(ImageOps.grayscale(view)).convert("RGB")
+        for view in color_views
+    )
     return views

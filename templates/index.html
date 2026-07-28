@@ -25,8 +25,13 @@
           {% endfor %}
         </select>
 
-        <label for="foto">Ürün fotoğrafı</label>
-        <input id="foto" name="foto" type="file" accept="image/*,.heic,.heif">
+        <label>Ürün fotoğrafı</label>
+        <div class="photo-actions">
+          <label class="photo-action camera-action" for="kamera">Kamerayla çek</label>
+          <input id="kamera" name="kamera" type="file" accept="image/*" capture="environment">
+          <label class="photo-action gallery-action" for="foto">Galeriden / dosyadan seç</label>
+          <input id="foto" name="foto" type="file" accept="image/*,.heic,.heif">
+        </div>
         <div id="query-preview" class="query-preview{% if not query_preview %} is-hidden{% endif %}">
           <div class="query-preview-heading">
             <strong>Aranacak görsel</strong>
@@ -79,12 +84,12 @@
   </main>
   <script>
     (() => {
-      const input = document.getElementById('foto');
+      const inputs = [document.getElementById('kamera'), document.getElementById('foto')];
       const preview = document.getElementById('query-preview');
       const image = document.getElementById('query-preview-image');
       const note = document.getElementById('query-preview-note');
       let objectUrl = null;
-      input.addEventListener('change', () => {
+      const showPreview = (input) => {
         const file = input.files && input.files[0];
         if (!file) {
           preview.classList.add('is-hidden');
@@ -99,7 +104,11 @@
         image.onerror = () => {
           note.textContent = 'HEIC görseli aramadan sonra dönüştürülerek gösterilecek';
         };
-      });
+        inputs.forEach(other => {
+          if (other !== input) other.value = '';
+        });
+      };
+      inputs.forEach(input => input.addEventListener('change', () => showPreview(input)));
     })();
   </script>
 </body>
