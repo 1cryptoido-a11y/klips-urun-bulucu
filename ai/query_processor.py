@@ -218,7 +218,31 @@ def _category_views(image: Image.Image, category: str) -> list[Image.Image]:
     if normalized in {"kolye", "kolyeler"}:
         # Shop photos often contain two necklaces, one above the other. Searching
         # each overlapping half lets either individual catalog product win.
-        return _overlapping_axis_views(image, vertical=True)
+        regions = _overlapping_axis_views(image, vertical=True)
+        # On display cards the pendant can occupy less than five percent of the
+        # photo. Two progressively tighter bottom-centre crops preserve its motif
+        # while the original views still cover close-up and unusual compositions.
+        for width_ratio, height_ratio in ((0.72, 0.44), (0.56, 0.30)):
+            width = round(image.width * width_ratio)
+            height = round(image.height * height_ratio)
+            left = (image.width - width) // 2
+            regions.append(
+                image.crop((left, image.height - height, left + width, image.height))
+            )
+        # A hanging display card normally places its pendant around 75-85% of
+        # the image height, with unused card below it. This crop excludes both
+        # the logo and that empty lower margin.
+        regions.append(
+            image.crop(
+                (
+                    round(image.width * 0.30),
+                    round(image.height * 0.58),
+                    round(image.width * 0.70),
+                    round(image.height * 0.93),
+                )
+            )
+        )
+        return regions
     if normalized in {"bileklik", "bileklikler", "halhal", "halhallar"}:
         # Bracelets may be mounted vertically on the edge of a large display card.
         # Search both side regions and a rotated full view, where their shape is

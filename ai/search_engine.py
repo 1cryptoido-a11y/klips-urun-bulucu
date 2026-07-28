@@ -146,6 +146,11 @@ class ProductSearchEngine:
         fused: dict[int, float] = {}
         for view, (view_scores, view_ids) in enumerate(zip(scores, ids)):
             weight = 1.0 if view == 0 else FOCUSED_VIEW_WEIGHT
+            if category.upper() == "KOLYE" and view == len(scores) - 1:
+                # The final necklace view is a deliberately tight pendant crop.
+                # On a full display-card photo it carries more product identity
+                # than the card, logo, hand, and long chain in the original.
+                weight = 1.10
             for item_id, score in zip(view_ids, view_scores):
                 if item_id < 0:
                     continue

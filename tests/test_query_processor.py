@@ -49,9 +49,12 @@ class QueryProcessorTests(unittest.TestCase):
             with patch("ai.query_processor._background_mask", return_value=None):
                 views = prepare_query_views(path, "KOLYE")
 
-        self.assertEqual(len(views), 3)
-        self.assertEqual(views[-2].size, (600, 590))
-        self.assertEqual(views[-1].size, (600, 590))
+        self.assertEqual(len(views), 6)
+        self.assertEqual(views[-5].size, (600, 590))
+        self.assertEqual(views[-4].size, (600, 590))
+        self.assertEqual(views[-3].size, (432, 440))
+        self.assertEqual(views[-2].size, (336, 300))
+        self.assertEqual(views[-1].size, (240, 350))
 
     def test_bracelet_category_adds_sides_and_rotated_view(self):
         with tempfile.TemporaryDirectory() as directory:
